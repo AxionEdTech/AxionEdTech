@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { api } from "../api.js";
 import { renderRich } from "../richContent.jsx";
+import { examRank } from "../taxonomy.js";
 
 export default function PYQ() {
   const [pyqs, setPyqs] = useState(null);
@@ -15,7 +16,7 @@ export default function PYQ() {
   }, []);
 
   const exams = useMemo(
-    () => (pyqs ? [...new Set(pyqs.map((q) => q.exam || "General"))].sort() : []),
+    () => (pyqs ? [...new Set(pyqs.map((q) => q.exam || "General"))].sort((a, b) => examRank(a) - examRank(b)) : []),
     [pyqs]
   );
 
@@ -42,6 +43,8 @@ export default function PYQ() {
     (acc[key] ||= []).push(q);
     return acc;
   }, {});
+
+  const orderedGroups = Object.entries(grouped).sort((a, b) => examRank(a[0]) - examRank(b[0]));
 
   return (
     <div className="page">
@@ -72,7 +75,7 @@ export default function PYQ() {
 
       {filtered.length === 0 && <p className="empty-state">No questions match this filter yet.</p>}
 
-      {Object.entries(grouped).map(([examName, questions]) => (
+      {orderedGroups.map(([examName, questions]) => (
         <div key={examName} className="pyq-exam-group">
           {exams.length > 1 && exam === "" && <h2 className="section-heading">{examName}</h2>}
           <div className="pyq-list">

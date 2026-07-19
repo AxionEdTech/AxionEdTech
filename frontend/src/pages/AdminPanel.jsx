@@ -1,15 +1,49 @@
 import React, { useState } from "react";
 import { api } from "../api.js";
+import { EXAMS, SUBJECTS, UNITS } from "../taxonomy.js";
 
 const TABS = ["Add Note", "Add PYQ", "Add Mock Test", "Manage Students"];
 
-const EXAM_SUGGESTIONS = ["CSIR NET", "GATE", "DU", "HCU", "JEST", "TIFR"];
-
-function ExamDatalist() {
+// Reusable controlled dropdowns so section keys are always canonical.
+function ExamSelect({ value, onChange }) {
   return (
-    <datalist id="exam-suggestions">
-      {EXAM_SUGGESTIONS.map((e) => <option key={e} value={e} />)}
-    </datalist>
+    <label>Exam
+      <select required value={value} onChange={(e) => onChange(e.target.value)}>
+        <option value="">Select exam…</option>
+        {EXAMS.map((x) => <option key={x} value={x}>{x}</option>)}
+      </select>
+    </label>
+  );
+}
+
+function SubjectSelect({ value, onChange }) {
+  return (
+    <label>Subject
+      <select required value={value} onChange={(e) => onChange(e.target.value)}>
+        <option value="">Select subject…</option>
+        {SUBJECTS.map((s) => <option key={s} value={s}>{s}</option>)}
+      </select>
+    </label>
+  );
+}
+
+// Unit list depends on the chosen subject. Falls back to a text input for
+// subjects that have no predefined unit list yet.
+function UnitSelect({ subject, value, onChange }) {
+  const units = UNITS[subject] || [];
+  if (!subject) {
+    return <label>Unit<input disabled placeholder="Choose a subject first" /></label>;
+  }
+  if (units.length === 0) {
+    return <label>Unit<input required value={value} onChange={(e) => onChange(e.target.value)} placeholder="Unit name" /></label>;
+  }
+  return (
+    <label>Unit / Topic
+      <select required value={value} onChange={(e) => onChange(e.target.value)}>
+        <option value="">Select unit…</option>
+        {units.map((u) => <option key={u} value={u}>{u}</option>)}
+      </select>
+    </label>
   );
 }
 
@@ -52,7 +86,8 @@ export default function AdminPanel() {
 function NoteForm({ onDone }) {
   const [form, setForm] = useState({ exam: "", subject: "", unit: "", title: "", content: "", is_premium: false });
   const [busy, setBusy] = useState(false);
-  const update = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  // When subject changes, reset unit so a stale unit from another subject can't be saved.
+  const update = (k, v) => setForm((f) => (k === "subject" ? { ...f, subject: v, unit: "" } : { ...f, [k]: v }));
 
   async function submit(e) {
     e.preventDefault();
@@ -68,12 +103,11 @@ function NoteForm({ onDone }) {
 
   return (
     <form className="form" onSubmit={submit}>
-      <ExamDatalist />
       <div className="form-row">
-        <label>Exam<input list="exam-suggestions" required value={form.exam} onChange={(e) => update("exam", e.target.value)} placeholder="CSIR NET, GATE, DU..." /></label>
-        <label>Subject<input required value={form.subject} onChange={(e) => update("subject", e.target.value)} placeholder="Physics, Chemistry..." /></label>
+        <ExamSelect value={form.exam} onChange={(v) => update("exam", v)} />
+        <SubjectSelect value={form.subject} onChange={(v) => update("subject", v)} />
       </div>
-      <label>Unit<input required value={form.unit} onChange={(e) => update("unit", e.target.value)} placeholder="Unit 1 - ..." /></label>
+      <UnitSelect subject={form.subject} value={form.unit} onChange={(v) => update("unit", v)} />
       <label>Title<input required value={form.title} onChange={(e) => update("title", e.target.value)} /></label>
       <label>Content<textarea required rows={10} value={form.content} onChange={(e) => update("content", e.target.value)} /></label>
       <p className="field-hint">Math: type $E=mc^2$ for inline, or $$...$$ on its own line for a centered equation. Images: paste a link ending in .png/.jpg, or use ![caption](link) for a captioned image.</p>
@@ -109,10 +143,9 @@ function PYQForm({ onDone }) {
 
   return (
     <form className="form" onSubmit={submit}>
-      <ExamDatalist />
       <div className="form-row">
-        <label>Exam<input list="exam-suggestions" required value={form.exam} onChange={(e) => update("exam", e.target.value)} placeholder="CSIR NET, GATE, DU..." /></label>
-        <label>Subject<input required value={form.subject} onChange={(e) => update("subject", e.target.value)} placeholder="Physics, Chemistry..." /></label>
+        <ExamSelect value={form.exam} onChange={(v) => update("exam", v)} />
+        <SubjectSelect value={form.subject} onChange={(v) => update("subject", v)} />
       </div>
       <div className="form-row">
         <label>Year<input required type="number" value={form.year} onChange={(e) => update("year", Number(e.target.value))} /></label>
@@ -167,10 +200,9 @@ function TestForm({ onDone }) {
 
   return (
     <form className="form" onSubmit={submit}>
-      <ExamDatalist />
       <div className="form-row">
-        <label>Exam<input list="exam-suggestions" required value={form.exam} onChange={(e) => update("exam", e.target.value)} placeholder="CSIR NET, GATE, DU..." /></label>
-        <label>Subject<input required value={form.subject} onChange={(e) => update("subject", e.target.value)} placeholder="Physics, Chemistry..." /></label>
+        <ExamSelect value={form.exam} onChange={(v) => update("exam", v)} />
+        <SubjectSelect value={form.subject} onChange={(v) => update("subject", v)} />
       </div>
       <div className="form-row">
         <label>Duration (minutes)<input required type="number" value={form.duration_minutes} onChange={(e) => update("duration_minutes", Number(e.target.value))} /></label>

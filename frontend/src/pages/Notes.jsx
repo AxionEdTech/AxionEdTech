@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api.js";
+import { examRank, subjectRank, unitRank } from "../taxonomy.js";
 
 export default function Notes() {
   const [notes, setNotes] = useState(null);
@@ -12,7 +13,7 @@ export default function Notes() {
   }, []);
 
   const exams = useMemo(
-    () => (notes ? [...new Set(notes.map((n) => n.exam || "General"))].sort() : []),
+    () => (notes ? [...new Set(notes.map((n) => n.exam || "General"))].sort((a, b) => examRank(a) - examRank(b)) : []),
     [notes]
   );
 
@@ -30,9 +31,15 @@ export default function Notes() {
     const key = exam
       ? (n.subject ? `${n.subject} — ${n.unit}` : n.unit)
       : `${n.exam || "General"} · ${n.subject ? n.subject + " — " : ""}${n.unit}`;
-    (acc[key] ||= []).push(n);
+    (acc[key] ||= { items: [], rank: [examRank(n.exam), subjectRank(n.subject), unitRank(n.subject, n.unit)] }).items.push(n);
     return acc;
   }, {});
+
+  // Order sections by taxonomy: exam, then subject, then unit (syllabus order).
+  const sections = Object.entries(grouped).sort((a, b) => {
+    const [ea, sa, ua] = a[1].rank, [eb, sb, ub] = b[1].rank;
+    return ea - eb || sa - sb || ua - ub || a[0].localeCompare(b[0]);
+  });
 
   return (
     <div className="page">
@@ -48,9 +55,9 @@ export default function Notes() {
         </div>
       )}
 
-      {Object.keys(grouped).length === 0 && <p className="empty-state">No notes have been added yet.</p>}
+      {sections.length === 0 && <p className="empty-state">No notes have been added yet.</p>}
 
-      {Object.entries(grouped).map(([group, items]) => (
+      {sections.map(([group, { items }]) => (
         <div key={group} className="note-group">
           <h3>{group}</h3>
           <ul className="note-list">
