@@ -167,7 +167,7 @@ button { font-family: inherit; }
 .pyq-list { display: flex; flex-direction: column; gap: 16px; }
 .pyq-card { background: var(--white); border: 1px solid var(--border); border-radius: 10px; padding: 22px 24px; }
 .pyq-paper {
-  background: var(--white); border: 1px solid var(--border); border-radius: 10px;
+  position: relative; background: var(--white); border: 1px solid var(--border); border-radius: 10px;
   padding: 4px 32px; box-shadow: 0 1px 2px rgba(22,33,62,0.03);
 }
 .pyq-entry { padding: 26px 0; border-bottom: 1px dashed var(--border); }
@@ -181,8 +181,21 @@ button { font-family: inherit; }
 .pyq-options li.correct { background: var(--accent-soft); color: #0B6B54; font-weight: 600; }
 .pyq-options li.incorrect { background: var(--danger-soft); color: var(--danger); font-weight: 600; }
 .pyq-explanation { font-size: 0.88rem; color: var(--ink-soft); border-left: 3px solid var(--accent); padding-left: 12px; margin: 0; }
-.pyq-pagination { display: flex; align-items: center; justify-content: center; gap: 20px; margin-top: 24px; }
+.pyq-pagination { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 24px; flex-wrap: wrap; }
 .pyq-pagination-label { font-family: var(--font-mono); font-size: 0.85rem; color: var(--muted); }
+.pyq-pagination-numbers { display: flex; align-items: center; gap: 6px; }
+.pyq-page-btn {
+  min-width: 32px; height: 32px; padding: 0 6px; border: 1px solid var(--border); border-radius: 6px;
+  background: var(--white); color: var(--ink-soft); font-family: var(--font-mono); font-size: 0.82rem;
+  font-weight: 600; cursor: pointer;
+}
+.pyq-page-btn:hover { border-color: var(--accent); color: var(--ink); }
+.pyq-page-btn.active { background: var(--ink); color: var(--white); border-color: var(--ink); cursor: default; }
+.pyq-page-ellipsis { color: var(--muted); font-family: var(--font-mono); font-size: 0.82rem; padding: 0 2px; }
+.pyq-page-marker {
+  position: absolute; top: 14px; right: 20px; font-family: var(--font-mono); font-size: 0.7rem;
+  color: var(--muted); letter-spacing: 0.04em;
+}
 
 /* ---------- Mock test list & results ---------- */
 .test-list { display: flex; flex-direction: column; gap: 12px; }

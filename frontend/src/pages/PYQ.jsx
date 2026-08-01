@@ -1,9 +1,23 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api.js";
 import { renderRich } from "../richContent.jsx";
 import { examRank } from "../taxonomy.js";
 
 const PAGE_SIZE = 10;
+
+// Builds a compact page-number list around the current page, e.g.
+// [1, "…", 4, 5, 6, "…", 20] — so the pagination bar stays short even
+// when there are many pages, like a PDF viewer's page picker.
+function pageWindow(current, total, delta = 2) {
+  const pages = [1];
+  const left = Math.max(2, current - delta);
+  const right = Math.min(total - 1, current + delta);
+  if (left > 2) pages.push("…");
+  for (let i = left; i <= right; i++) pages.push(i);
+  if (right < total - 1) pages.push("…");
+  if (total > 1) pages.push(total);
+  return pages;
+}
 
 export default function PYQ() {
   const [pyqs, setPyqs] = useState(null);
@@ -13,10 +27,21 @@ export default function PYQ() {
   const [part, setPart] = useState("");
   const [page, setPage] = useState(1);
   const [revealed, setRevealed] = useState({});
+  const paperRef = useRef(null);
 
   useEffect(() => {
     api.listPYQs().then((d) => setPyqs(d.pyqs)).catch((e) => setError(e.message));
   }, []);
+
+  // Jumping to a new page (via a number, or Previous/Next) scrolls back to
+  // the top of the sheet — like turning to the next page of a PDF instead
+  // of leaving you scrolled halfway down the old one. Skipped on first
+  // mount so opening the page doesn't yank the viewport down.
+  const mountedRef = useRef(false);
+  useEffect(() => {
+    if (!mountedRef.current) { mountedRef.current = true; return; }
+    paperRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [page]);
 
   const exams = useMemo(
     () => (pyqs ? [...new Set(pyqs.map((q) => q.exam || "General"))].sort((a, b) => examRank(a) - examRank(b)) : []),
@@ -65,7 +90,23 @@ export default function PYQ() {
         <button className="btn btn-ghost btn-sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
           ← Previous
         </button>
-        <span className="pyq-pagination-label">Page {page} of {totalPages}</span>
+        <div className="pyq-pagination-numbers">
+          {pageWindow(page, totalPages).map((n, i) =>
+            n === "…" ? (
+              <span key={`gap-${i}`} className="pyq-page-ellipsis">…</span>
+            ) : (
+              <button
+                key={n}
+                type="button"
+                className={`pyq-page-btn${n === page ? " active" : ""}`}
+                aria-current={n === page ? "page" : undefined}
+                onClick={() => setPage(n)}
+              >
+                {n}
+              </button>
+            )
+          )}
+        </div>
         <button className="btn btn-ghost btn-sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
           Next →
         </button>
@@ -106,7 +147,8 @@ export default function PYQ() {
         <>
           <p className="pyq-range">Showing questions {firstNum}–{lastNum} of {filtered.length}</p>
 
-          <div className="pyq-paper">
+          <div className="pyq-paper" ref={paperRef}>
+            <div className="pyq-page-marker">Page {page} of {totalPages}</div>
             {pageItems.map((q, i) => {
               const num = firstNum + i;
               return (
