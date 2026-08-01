@@ -211,7 +211,7 @@ function PYQManager({ onDone }) {
         {pyqs && pyqs.map((q) => (
           <div key={q.id} className="admin-list-row">
             <div>
-              <strong>{q.question.length > 70 ? q.question.slice(0, 70) + "…" : q.question}</strong>
+              <strong>{q.content.length > 70 ? q.content.slice(0, 70) + "…" : q.content}</strong>
               <span className="admin-list-meta">{q.exam} {q.year} · Part {q.part} · {q.subject}{q.is_premium ? " · Paid" : ""}</span>
             </div>
             <div className="admin-list-actions">
@@ -227,12 +227,8 @@ function PYQManager({ onDone }) {
 
 function PYQForm({ editing, onDone, onCancelEdit }) {
   const [form, setForm] = useState(() => editing
-    ? { ...editing }
-    : {
-        exam: "", subject: "", year: new Date().getFullYear(), part: "A", question: "",
-        option_a: "", option_b: "", option_c: "", option_d: "", correct_option: "A", explanation: "",
-        is_premium: false
-      }
+    ? { exam: editing.exam, subject: editing.subject, year: editing.year, part: editing.part, content: editing.content, is_premium: editing.is_premium }
+    : { exam: "", subject: "", year: new Date().getFullYear(), part: "A", content: "", is_premium: false }
   );
   const [busy, setBusy] = useState(false);
   const update = (k, v) => setForm((f) => ({ ...f, [k]: v }));
@@ -248,7 +244,7 @@ function PYQForm({ editing, onDone, onCancelEdit }) {
       } else {
         await api.createPYQ(form);
         onDone("Question added.");
-        setForm((f) => ({ ...f, question: "", option_a: "", option_b: "", option_c: "", option_d: "", explanation: "" }));
+        setForm((f) => ({ ...f, content: "" }));
       }
     } catch (err) {
       onDone(err.message);
@@ -271,22 +267,18 @@ function PYQForm({ editing, onDone, onCancelEdit }) {
           </select>
         </label>
       </div>
-      <label>Question<textarea required rows={3} value={form.question} onChange={(e) => update("question", e.target.value)} /></label>
-      <p className="field-hint">Math: $E=mc^2$ inline or $$...$$ for a centered equation. Images: paste a link ending in .png/.jpg, or ![caption](link).</p>
-      <div className="form-row">
-        <label>Option A<input required value={form.option_a} onChange={(e) => update("option_a", e.target.value)} /></label>
-        <label>Option B<input required value={form.option_b} onChange={(e) => update("option_b", e.target.value)} /></label>
-      </div>
-      <div className="form-row">
-        <label>Option C<input required value={form.option_c} onChange={(e) => update("option_c", e.target.value)} /></label>
-        <label>Option D<input required value={form.option_d} onChange={(e) => update("option_d", e.target.value)} /></label>
-      </div>
-      <label>Correct option
-        <select value={form.correct_option} onChange={(e) => update("correct_option", e.target.value)}>
-          <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option>
-        </select>
-      </label>
-      <label>Explanation (optional)<textarea rows={2} value={form.explanation} onChange={(e) => update("explanation", e.target.value)} /></label>
+      <label>Content<textarea required rows={10} value={form.content} onChange={(e) => update("content", e.target.value)} /></label>
+      <p className="field-hint">One box for everything — question, options, and the answer. Formatting works the same as Notes: ## heading, **bold**, * bullet list, $E=mc^2$ inline math, $$...$$ block math, or paste an image link directly. Since there's no separate answer field anymore, students will see the whole thing at once (no "reveal answer" step) — so write it the way you'd want it read straight through, e.g.:</p>
+      <pre className="field-example">{`Which organelle is the primary site of ATP synthesis?
+
+A) Golgi apparatus
+B) Mitochondrion
+C) Peroxisome
+D) Lysosome
+
+**Answer: B**
+
+The inner mitochondrial membrane houses the electron transport chain.`}</pre>
       <label style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
         <input type="checkbox" checked={form.is_premium} onChange={(e) => update("is_premium", e.target.checked)} style={{ width: "auto" }} />
         Paid plan only

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api.js";
-import { renderRich } from "../richContent.jsx";
+import RichContent from "../richContent.jsx";
 import { examRank } from "../taxonomy.js";
 
 const PAGE_SIZE = 10;
@@ -26,7 +26,6 @@ export default function PYQ() {
   const [year, setYear] = useState("");
   const [part, setPart] = useState("");
   const [page, setPage] = useState(1);
-  const [revealed, setRevealed] = useState({});
   const paperRef = useRef(null);
 
   useEffect(() => {
@@ -117,7 +116,7 @@ export default function PYQ() {
   return (
     <div className="page">
       <h1>Previous Year Papers</h1>
-      <p className="page-sub">Attempt each question, then reveal the answer and explanation.</p>
+      <p className="page-sub">Read straight through — question, options, and answer are all shown together.</p>
 
       {exams.length > 1 && (
         <div className="exam-tabs">
@@ -157,21 +156,7 @@ export default function PYQ() {
                     <span className="pyq-num">{num}.</span>
                     <span className="pyq-meta">{q.exam || "General"} {q.year} · Part {q.part}</span>
                   </div>
-                  <div className="pyq-question">{renderRich(q.question, `q${q.id}`)}</div>
-                  <ul className="pyq-options">
-                    {["A", "B", "C", "D"].map((opt) => (
-                      <li key={opt} className={revealed[q.id] && opt === q.correct_option ? "correct" : ""}>
-                        <strong>{opt}.</strong> {renderRich(q[`option_${opt.toLowerCase()}`], `q${q.id}o${opt}`)}
-                      </li>
-                    ))}
-                  </ul>
-                  {revealed[q.id] ? (
-                    q.explanation && <p className="pyq-explanation">{renderRich(q.explanation, `q${q.id}e`)}</p>
-                  ) : (
-                    <button className="btn btn-ghost btn-sm" onClick={() => setRevealed((r) => ({ ...r, [q.id]: true }))}>
-                      Show answer
-                    </button>
-                  )}
+                  <div className="pyq-question"><RichContent text={q.content} /></div>
                 </div>
               );
             })}
