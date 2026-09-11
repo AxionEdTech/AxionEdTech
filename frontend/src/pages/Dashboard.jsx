@@ -2,6 +2,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../AuthContext.jsx";
 import { EXAMS } from "../taxonomy.js";
+import NoticeBoard from "../components/NoticeBoard.jsx";
 
 const RESOURCES = [
   { to: "/notes", number: "01", title: "Study Notes", description: "Numbered notes organised by exam, subject, and unit.", action: "Browse notes" },
@@ -35,6 +36,7 @@ export default function Dashboard() {
           </div>
         </aside>
       </section>
+      <NoticeBoard limit={3} />
       <section className="dashboard-section" aria-labelledby="resource-heading">
         <div className="section-heading">
           <div><p className="eyebrow">Your preparation desk</p><h2 id="resource-heading">Choose where to continue</h2></div>

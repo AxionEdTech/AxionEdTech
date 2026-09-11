@@ -43,6 +43,11 @@ export const UNITS = {
   General: ["General"],
 };
 
+// Some exams (CSIR NET, for one) are held more than once a year. This list
+// only drives sort order and the datalist suggestion in the PYQ admin form —
+// any exam can be given any session label, or none at all (a plain year).
+export const SESSIONS = ["June", "December"];
+
 // Helper: index of a value in an ordered list, with unknowns pushed to the end.
 export function orderIndex(list, value) {
   const i = list.indexOf(value);
@@ -59,4 +64,9 @@ export function subjectRank(subject) {
 }
 export function unitRank(subject, unit) {
   return orderIndex(UNITS[subject] || [], unit);
+}
+// No session (an exam held once a year) sorts before a named session, so an
+// un-tagged year doesn't get stranded in the middle of that year's sittings.
+export function sessionRank(session) {
+  return session ? orderIndex(SESSIONS, session) : -1;
 }

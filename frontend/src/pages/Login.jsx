@@ -29,7 +29,7 @@ export default function Login() {
   return (
     <div className="auth-shell">
       <div className="auth-card">
-        <div className="auth-mark">Axion EdTech</div>
+        <img src="/logo.png" alt="Axion EdTech" className="auth-logo" />
         <h1>Welcome back</h1>
         <p className="auth-sub">Log in to access your notes, papers and mock tests.</p>
 

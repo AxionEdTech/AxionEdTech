@@ -38,7 +38,7 @@ export default function Register() {
     return (
       <div className="auth-shell">
         <div className="auth-card">
-          <div className="auth-mark">Axion EdTech</div>
+          <img src="/logo.png" alt="Axion EdTech" className="auth-logo" />
           <h1>Check your email</h1>
           <p className="auth-sub">We've sent a confirmation link to {form.email}. Click it, then come back and log in.</p>
           <Link to="/login" className="btn btn-primary" style={{ display: "inline-block", textAlign: "center" }}>Go to login</Link>
@@ -50,7 +50,7 @@ export default function Register() {
   return (
     <div className="auth-shell">
       <div className="auth-card">
-        <div className="auth-mark">Axion EdTech</div>
+        <img src="/logo.png" alt="Axion EdTech" className="auth-logo" />
         <h1>Create your account</h1>
         <p className="auth-sub">Get access to notes, previous papers and full-length mock tests.</p>
 

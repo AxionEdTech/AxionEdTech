@@ -26,6 +26,11 @@ own computer before it's live.
    it into the SQL Editor box on the Supabase website.
 6. Click **Run** (bottom right). You should see "Success. No rows returned." This one
    paste created your entire database — all the tables, security rules, and sample content.
+6a. **If you're setting this up today (not from an old backup):** also open
+   `supabase/migration_2_multi_exam.sql` and `supabase/migration_3_notice_board_and_access_tiers.sql`
+   and run each one the same way, in that order, right after `schema.sql`. They add
+   multi-exam support, the notice board, and the guest/free/paid access tiers —
+   see `UPGRADE_NOTES.md` for what each one does.
 7. On the left sidebar, click **Settings → API**. You'll see two things you need later:
    - **Project URL** (looks like `https://xxxxx.supabase.co`)
    - **anon public** key (a long string of letters/numbers)

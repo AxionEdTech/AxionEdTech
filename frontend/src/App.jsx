@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from "./AuthContext.jsx";
 import Navbar from "./components/Navbar.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 
+import Home from "./pages/Home.jsx";
 import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
@@ -25,24 +26,33 @@ function Shell({ children }) {
   );
 }
 
-function HomeRedirect() {
+// Logged-in visitors land on their Dashboard, same as before. Signed-out
+// visitors now get a real public Home page instead of being bounced straight
+// to the login form — that's where the notice board and free preview live.
+function HomeGate() {
   const { user, loading } = useAuth();
   if (loading) return <div className="page-loading">Loading…</div>;
-  return <Navigate to={user ? "/dashboard" : "/login"} replace />;
+  if (user) return <Navigate to="/dashboard" replace />;
+  return <Shell><Home /></Shell>;
 }
 
 export default function App() {
   return (
     <AuthProvider>
       <Routes>
-        <Route path="/" element={<HomeRedirect />} />
+        <Route path="/" element={<HomeGate />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
 
         <Route path="/dashboard" element={<ProtectedRoute><Shell><Dashboard /></Shell></ProtectedRoute>} />
-        <Route path="/notes" element={<ProtectedRoute><Shell><Notes /></Shell></ProtectedRoute>} />
-        <Route path="/notes/:id" element={<ProtectedRoute><Shell><NoteView /></Shell></ProtectedRoute>} />
-        <Route path="/pyqs" element={<ProtectedRoute><Shell><PYQ /></Shell></ProtectedRoute>} />
+
+        {/* Notes and Previous Papers are open to everyone — Row Level Security
+            decides how much of the content a guest vs. free vs. paid visitor
+            actually receives, so no login gate is needed at the route level. */}
+        <Route path="/notes" element={<Shell><Notes /></Shell>} />
+        <Route path="/notes/:id" element={<Shell><NoteView /></Shell>} />
+        <Route path="/pyqs" element={<Shell><PYQ /></Shell>} />
+
         <Route path="/tests" element={<ProtectedRoute><Shell><MockTestList /></Shell></ProtectedRoute>} />
         <Route path="/tests/attempt/:testId" element={<ProtectedRoute><MockTestAttempt /></ProtectedRoute>} />
         <Route path="/tests/result/:attemptId" element={<ProtectedRoute><Shell><MockTestResult /></Shell></ProtectedRoute>} />

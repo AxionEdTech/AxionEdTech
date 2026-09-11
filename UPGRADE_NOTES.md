@@ -43,3 +43,39 @@ git add -A && git commit -m "Controlled taxonomy + ordered sections for notes/PY
 - Previous Papers use a continuous booklet layout, sequential global numbering, 10-question pagination, and reset pagination upon filter changes.
 - Direct image URLs ending in supported image extensions already render through `richContent.jsx`; Markdown image syntax is supported too.
 - `AdSlot.jsx` is opt-in and safe by default. Use only after ad-network approval; do not use in mock attempts or next to answers.
+
+## September 2026 — Notice board, guest preview tier, PYQ sessions
+**Run `supabase/migration_3_notice_board_and_access_tiers.sql` in Supabase → SQL Editor before deploying this frontend build.** It's additive/idempotent and safe on your live database. See the comments inside for exactly what it does; in short:
+
+1. **Notice board** — a new "Notices" tab in Admin posts short updates (title,
+   message, pin-to-top, show/hide). They appear on the public Home page and
+   on the logged-in Dashboard, newest-and-pinned first.
+2. **Three access tiers, enforced in the database (not just hidden in the UI)**:
+   - **Guest (no account)** — sees the home page and only notes/PYQs an admin
+     has explicitly checked "Show to visitors without logging in (free
+     preview)".
+   - **Free account** — sees all non-"Paid plan only" notes and PYQs, in full.
+   - **Paid plan** — sees everything, same as before.
+   `/notes` and `/pyqs` no longer require login to open at all; Row Level
+   Security is what actually decides how much content comes back for each
+   visitor, so there's no way to see more by tinkering with the page.
+3. **PYQ sessions** — a new optional "Session" field (e.g. `June`, `December`)
+   sits alongside Year, so an exam held twice a year (CSIR NET) can have two
+   distinct papers for the same year instead of colliding. Leave it blank for
+   exams that run once a year.
+4. **Manual note ordering** — Admin → Notes → "Reorder notes" now lets you
+   move a whole topic, or a single note within it, up or down with one click.
+   Notes you haven't touched keep the existing syllabus-based order
+   automatically (see `frontend/src/noteOrdering.js`).
+5. **PYQ admin bug fix** — the PYQ editor already asked for a single
+   `content` field (question + options + answer as one block), but no
+   migration had ever added that column to the live `pyqs` table, so saving
+   a PYQ was almost certainly failing. `migration_3` adds it and
+   best-effort backfills anything left over in the older structured columns.
+6. **Branding** — the new circular logo now appears in the navbar, the
+   favicon, and both auth screens; the accent color moved from green to the
+   blue used in the logo.
+
+No changes were made to Mock Tests — attempts still require an account
+(scoring and progress are tied to a user), which is standard for graded
+tests.

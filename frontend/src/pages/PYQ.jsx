@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api.js";
 import RichContent from "../richContent.jsx";
-import { examRank } from "../taxonomy.js";
+import { examRank, sessionRank } from "../taxonomy.js";
+import { useAuth } from "../AuthContext.jsx";
+import GuestBanner from "../components/GuestBanner.jsx";
 
 const PAGE_SIZE = 10;
 
@@ -24,9 +26,11 @@ export default function PYQ() {
   const [error, setError] = useState("");
   const [exam, setExam] = useState("");
   const [year, setYear] = useState("");
+  const [session, setSession] = useState("");
   const [part, setPart] = useState("");
   const [page, setPage] = useState(1);
   const paperRef = useRef(null);
+  const { user } = useAuth();
 
   useEffect(() => {
     api.listPYQs().then((d) => setPyqs(d.pyqs)).catch((e) => setError(e.message));
@@ -55,24 +59,37 @@ export default function PYQ() {
       .filter((q) =>
         (!exam || (q.exam || "General") === exam) &&
         (!year || String(q.year) === String(year)) &&
+        (!session || (q.session || "") === session) &&
         (!part || q.part === part)
       )
       .sort((a, b) =>
         examRank(a.exam) - examRank(b.exam) ||
         b.year - a.year ||
+        sessionRank(a.session) - sessionRank(b.session) ||
         a.part.localeCompare(b.part) ||
         a.id - b.id
       );
-  }, [pyqs, exam, year, part]);
+  }, [pyqs, exam, year, session, part]);
 
   const years = useMemo(
     () => [...new Set((pyqs || []).filter((q) => !exam || (q.exam || "General") === exam).map((q) => q.year))].sort((a, b) => b - a),
     [pyqs, exam]
   );
 
+  // Only offered once at least one question actually carries a session label
+  // (e.g. CSIR NET's June/December sittings) — stays out of the way for
+  // exams that run once a year.
+  const sessions = useMemo(
+    () => [...new Set((pyqs || [])
+      .filter((q) => (!exam || (q.exam || "General") === exam) && (!year || String(q.year) === String(year)))
+      .map((q) => q.session)
+      .filter(Boolean))].sort((a, b) => sessionRank(a) - sessionRank(b)),
+    [pyqs, exam, year]
+  );
+
   // Jump back to page 1 whenever a filter changes, so you're never stranded
   // on a page number that no longer has any questions on it.
-  useEffect(() => { setPage(1); }, [exam, year, part]);
+  useEffect(() => { setPage(1); }, [exam, year, session, part]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -118,6 +135,8 @@ export default function PYQ() {
       <h1>Previous Year Papers</h1>
       <p className="page-sub">Read straight through — question, options, and answer are all shown together.</p>
 
+      {!user && <GuestBanner />}
+
       {exams.length > 1 && (
         <div className="exam-tabs">
           <button className={exam === "" ? "active" : ""} onClick={() => setExam("")}>All exams</button>
@@ -132,6 +151,12 @@ export default function PYQ() {
           <option value="">All years</option>
           {years.map((y) => <option key={y} value={y}>{y}</option>)}
         </select>
+        {sessions.length > 0 && (
+          <select value={session} onChange={(e) => setSession(e.target.value)}>
+            <option value="">All sessions</option>
+            {sessions.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        )}
         <select value={part} onChange={(e) => setPart(e.target.value)}>
           <option value="">All parts</option>
           <option value="A">Part A</option>
@@ -140,7 +165,11 @@ export default function PYQ() {
         </select>
       </div>
 
-      {filtered.length === 0 && <p className="empty-state">No questions match this filter yet.</p>}
+      {filtered.length === 0 && (
+        <p className="empty-state">
+          {user ? "No questions match this filter yet." : "No free-preview questions match this filter — log in for full access."}
+        </p>
+      )}
 
       {filtered.length > 0 && (
         <>
@@ -154,7 +183,9 @@ export default function PYQ() {
                 <div key={q.id} className="pyq-entry">
                   <div className="pyq-entry-head">
                     <span className="pyq-num">{num}.</span>
-                    <span className="pyq-meta">{q.exam || "General"} {q.year} · Part {q.part}</span>
+                    <span className="pyq-meta">
+                      {q.exam || "General"} {q.year}{q.session ? ` (${q.session})` : ""} · Part {q.part}
+                    </span>
                   </div>
                   <div className="pyq-question"><RichContent text={q.content} /></div>
                 </div>

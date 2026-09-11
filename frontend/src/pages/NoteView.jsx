@@ -2,11 +2,13 @@ import React, { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api.js";
 import RichContent from "../richContent.jsx";
+import { useAuth } from "../AuthContext.jsx";
 
 export default function NoteView() {
   const { id } = useParams();
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
+  const { user } = useAuth();
 
   useEffect(() => {
     setData(null);
@@ -34,6 +36,28 @@ export default function NoteView() {
 
   if (error) return <div className="page"><div className="form-error">{error}</div></div>;
   if (!data) return <div className="page-loading">Loading note…</div>;
+
+  if (data.restricted) {
+    return (
+      <div className="page">
+        <Link to="/notes" className="back-link">← Back to notes</Link>
+        <div className="locked-card">
+          <h1>{user ? "This note needs a Paid plan" : "Log in to view this note"}</h1>
+          <p className="page-sub">
+            {user
+              ? "This note is marked Paid plan only. Ask the admin to upgrade your account once you've paid."
+              : "This note isn't part of the free preview. Create a free account to read it — or log in if you already have one."}
+          </p>
+          {!user && (
+            <div className="hero-actions">
+              <Link className="btn btn-primary" to="/register">Create free account</Link>
+              <Link className="btn btn-ghost" to="/login">Log in</Link>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   const { note, watermark } = data;
 

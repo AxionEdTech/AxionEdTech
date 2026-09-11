@@ -51,19 +51,30 @@ export const api = {
   async listNotes() {
     const { data, error } = await supabase
       .from("notes")
-      .select("id, exam, subject, unit, title, created_at, is_premium")
+      .select("id, exam, subject, unit, title, created_at, is_premium, is_preview, position")
       .order("subject").order("unit");
     if (error) throw new Error(error.message);
     return { notes: data };
   },
 
+  // Guests may open a note that's flagged as a free preview; maybeSingle()
+  // returns null (not an error) when a note either doesn't exist or is
+  // outside what the current viewer's plan can see — the page then shows a
+  // "log in" / "upgrade" prompt instead of a raw database error.
   async getNote(id) {
-    const { data: note, error } = await supabase.from("notes").select("*").eq("id", id).single();
+    const { data: note, error } = await supabase.from("notes").select("*").eq("id", id).maybeSingle();
     if (error) throw new Error(error.message);
-    const authUser = await currentAuthUser();
-    const profile = await fetchProfile(authUser.id);
-    const watermark = `${profile.name} · ${profile.email} · ${new Date().toISOString()}`;
-    return { note, watermark };
+    if (!note) return { note: null, watermark: null, restricted: true };
+
+    let watermark = null;
+    try {
+      const authUser = await currentAuthUser();
+      const profile = await fetchProfile(authUser.id);
+      watermark = `${profile.name} · ${profile.email} · ${new Date().toISOString()}`;
+    } catch {
+      watermark = "Guest preview · not for redistribution";
+    }
+    return { note, watermark, restricted: false };
   },
 
   async createNote(payload) {
@@ -108,6 +119,38 @@ export const api = {
 
   async deletePYQ(id) {
     const { error } = await supabase.from("pyqs").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  },
+
+  // ---- Notice board ----
+  // Row Level Security already limits what comes back: a signed-out visitor
+  // only ever receives active notices; an admin calling this from the Admin
+  // panel receives every notice, active or not, so they can edit hidden ones.
+  async listAnnouncements() {
+    const { data, error } = await supabase
+      .from("announcements")
+      .select("*")
+      .order("is_pinned", { ascending: false })
+      .order("created_at", { ascending: false });
+    if (error) throw new Error(error.message);
+    return { announcements: data };
+  },
+
+  async createAnnouncement(payload) {
+    const { data, error } = await supabase.from("announcements").insert(payload).select().single();
+    if (error) throw new Error(error.message);
+    return { id: data.id };
+  },
+
+  async updateAnnouncement(id, payload) {
+    const { error } = await supabase.from("announcements").update(payload).eq("id", id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  },
+
+  async deleteAnnouncement(id) {
+    const { error } = await supabase.from("announcements").delete().eq("id", id);
     if (error) throw new Error(error.message);
     return { ok: true };
   },
