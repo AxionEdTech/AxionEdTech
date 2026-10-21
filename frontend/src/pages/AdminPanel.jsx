@@ -1,11 +1,3 @@
-<<<<<<< HEAD
-import React, { useEffect, useMemo, useState } from "react";
-import { api } from "../api.js";
-import { EXAMS, SUBJECTS, UNITS, SESSIONS } from "../taxonomy.js";
-import { groupNotes, assignPositions } from "../noteOrdering.js";
-
-const TABS = ["Notices", "Notes", "PYQs", "Mock Tests", "Manage Students"];
-=======
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api.js";
 import { EXAMS, SUBJECTS, UNITS, SESSIONS } from "../taxonomy.js";
@@ -17,7 +9,6 @@ import GoogleDriveImageButton from "../components/GoogleDriveImageButton.jsx";
 import { normalizeImageSrc } from "../driveImage.js";
 
 const TABS = ["Notices", "Author", "Notes", "PYQs", "Mock Tests", "Manage Students"];
->>>>>>> eff2ac1 (Notice board, access tiers, PYQ sessions, mock test bulk entry, author footer)
 
 // Exam suggestions everywhere now come straight from the shared taxonomy so
 // this list can never drift out of sync with what the public pages expect.
@@ -66,18 +57,11 @@ export default function AdminPanel() {
       {status && <div className="form-note">{status}</div>}
 
       {tab === 0 && <AnnouncementsManager onDone={setStatus} />}
-<<<<<<< HEAD
-      {tab === 1 && <NotesManager onDone={setStatus} />}
-      {tab === 2 && <PYQManager onDone={setStatus} />}
-      {tab === 3 && <TestManager onDone={setStatus} />}
-      {tab === 4 && <StudentsPanel onDone={setStatus} />}
-=======
       {tab === 1 && <AuthorsManager onDone={setStatus} />}
       {tab === 2 && <NotesManager onDone={setStatus} />}
       {tab === 3 && <PYQManager onDone={setStatus} />}
       {tab === 4 && <TestManager onDone={setStatus} />}
       {tab === 5 && <StudentsPanel onDone={setStatus} />}
->>>>>>> eff2ac1 (Notice board, access tiers, PYQ sessions, mock test bulk entry, author footer)
     </div>
   );
 }
@@ -179,8 +163,6 @@ function AnnouncementForm({ editing, onDone, onCancelEdit }) {
 }
 
 // ============================================================================
-<<<<<<< HEAD
-=======
 // Author / About info (site footer)
 // ============================================================================
 function AuthorsManager({ onDone }) {
@@ -304,7 +286,6 @@ function AuthorForm({ editing, onDone, onCancelEdit }) {
 }
 
 // ============================================================================
->>>>>>> eff2ac1 (Notice board, access tiers, PYQ sessions, mock test bulk entry, author footer)
 // Notes
 // ============================================================================
 function NotesManager({ onDone }) {
@@ -504,17 +485,12 @@ function NoteForm({ editing, onDone, onCancelEdit }) {
         </select>
       </label>
       <label>Title<input required value={form.title} onChange={(e) => update("title", e.target.value)} /></label>
-<<<<<<< HEAD
-      <label>Content<textarea required rows={10} value={form.content} onChange={(e) => update("content", e.target.value)} /></label>
-      <p className="field-hint">Formatting works here: ## heading, **bold**, * bullet list, $E=mc^2$ inline math, $$...$$ block math, or paste an image link directly.</p>
-=======
       <div className="field-label-row">
         <label htmlFor="note-content">Content</label>
         <GoogleDriveImageButton onInsert={(url) => insertAtCursor(contentRef, form.content, (v) => update("content", v), `\n![](${url})\n`)} />
       </div>
       <textarea id="note-content" ref={contentRef} required rows={10} value={form.content} onChange={(e) => update("content", e.target.value)} />
       <p className="field-hint">Formatting works here: ## heading, **bold**, * bullet list, $E=mc^2$ inline math, $$...$$ block math. "Add image from Drive" needs the file's sharing set to "Anyone with the link can view".</p>
->>>>>>> eff2ac1 (Notice board, access tiers, PYQ sessions, mock test bulk entry, author footer)
       <div className="form-row">
         <label style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <input type="checkbox" checked={form.is_preview} disabled={form.is_premium} onChange={(e) => update("is_preview", e.target.checked)} style={{ width: "auto" }} />
@@ -634,17 +610,12 @@ function PYQForm({ editing, onDone, onCancelEdit }) {
         </label>
       </div>
       <p className="field-hint">Leave Session blank for an exam that runs once a year. Fill it in for exams like CSIR NET, which is held twice a year, so both papers from the same year stay distinct.</p>
-<<<<<<< HEAD
-      <label>Content<textarea required rows={10} value={form.content} onChange={(e) => update("content", e.target.value)} /></label>
-      <p className="field-hint">One box for everything — question, options, and the answer. Formatting works the same as Notes: ## heading, **bold**, * bullet list, $E=mc^2$ inline math, $$...$$ block math, or paste an image link directly. Since there's no separate answer field anymore, students will see the whole thing at once (no "reveal answer" step) — so write it the way you'd want it read straight through, e.g.:</p>
-=======
       <div className="field-label-row">
         <label htmlFor="pyq-content">Content</label>
         <GoogleDriveImageButton onInsert={(url) => insertAtCursor(contentRef, form.content, (v) => update("content", v), `\n![](${url})\n`)} />
       </div>
       <textarea id="pyq-content" ref={contentRef} required rows={10} value={form.content} onChange={(e) => update("content", e.target.value)} />
       <p className="field-hint">One box for everything — question, options, and the answer. Formatting works the same as Notes: ## heading, **bold**, * bullet list, $E=mc^2$ inline math, $$...$$ block math. Use "Add image from Drive" above for a picture. Since there's no separate answer field anymore, students will see the whole thing at once (no "reveal answer" step) — so write it the way you'd want it read straight through, e.g.:</p>
->>>>>>> eff2ac1 (Notice board, access tiers, PYQ sessions, mock test bulk entry, author footer)
       <pre className="field-example">{`Which organelle is the primary site of ATP synthesis?
 
 A) Golgi apparatus

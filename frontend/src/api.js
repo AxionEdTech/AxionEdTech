@@ -155,8 +155,6 @@ export const api = {
     return { ok: true };
   },
 
-<<<<<<< HEAD
-=======
   // ---- Author / About info (shown in the site footer) ----
   async listAuthors() {
     const { data, error } = await supabase.from("authors").select("*").order("sort_order").order("id");
@@ -182,7 +180,6 @@ export const api = {
     return { ok: true };
   },
 
->>>>>>> eff2ac1 (Notice board, access tiers, PYQ sessions, mock test bulk entry, author footer)
   // ---- Mock tests ----
   async listTests() {
     const { data, error } = await supabase.rpc("list_mock_tests");

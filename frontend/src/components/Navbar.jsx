@@ -15,11 +15,7 @@ export default function Navbar() {
       <nav className="navbar-links">
         <Link to="/notes">Notes</Link>
         <Link to="/pyqs">Previous Papers</Link>
-<<<<<<< HEAD
-        {user && <Link to="/tests">Mock Tests</Link>}
-=======
         <Link to="/tests">Mock Tests</Link>
->>>>>>> eff2ac1 (Notice board, access tiers, PYQ sessions, mock test bulk entry, author footer)
         {user && <Link to="/results">My Results</Link>}
         {user?.role === "admin" && <Link to="/admin">Admin</Link>}
       </nav>

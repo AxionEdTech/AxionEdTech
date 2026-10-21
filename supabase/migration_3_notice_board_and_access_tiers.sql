@@ -1,22 +1,13 @@
 -- ============================================================================
-<<<<<<< HEAD
--- Migration 3: notice board, guest-preview access tier, PYQ exam sessions,
--- manual note ordering, and a fix so the PYQ admin form matches this table.
-=======
 -- Migration 3: notice board, guest-preview access tier (Notes, PYQs AND Mock
 -- Tests), PYQ exam sessions, manual note ordering, an admin-editable author/
 -- footer section, and a fix so the PYQ admin form matches this table.
->>>>>>> eff2ac1 (Notice board, access tiers, PYQ sessions, mock test bulk entry, author footer)
 --
 -- Safe to run once on your already-deployed database (after schema.sql and
 -- migration_2_multi_exam.sql). Paste this whole file into Supabase →
 -- SQL Editor → New query → Run. Every statement below is written so it can
-<<<<<<< HEAD
--- be re-run without error if you ever need to.
-=======
 -- be re-run without error if you ever need to — if you already ran an
 -- earlier copy of this file, running this one again is safe.
->>>>>>> eff2ac1 (Notice board, access tiers, PYQ sessions, mock test bulk entry, author footer)
 -- ============================================================================
 
 -- ---------- 1. Notice board ----------
@@ -117,8 +108,6 @@ begin
   end if;
 end $$;
 
-<<<<<<< HEAD
-=======
 -- ---------- 6. Guest-preview tier for Mock Tests ----------
 -- Mock tests were the one section with no guest tier at all — the test
 -- *catalog* (title, exam, subject, duration, question count — never the
@@ -245,7 +234,6 @@ create policy "authors_admin_delete" on public.authors for delete using (public.
 
 grant select on public.authors to anon, authenticated;
 
->>>>>>> eff2ac1 (Notice board, access tiers, PYQ sessions, mock test bulk entry, author footer)
 -- ============================================================================
 -- After this finishes with no errors, deploy the updated frontend code —
 -- no other manual database steps are needed.
