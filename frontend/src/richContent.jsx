@@ -4,6 +4,7 @@ import remarkMath from "remark-math";
 import remarkGfm from "remark-gfm";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
+import { normalizeImageSrc } from "./driveImage.js";
 
 // Turns a bare image link (not already inside markdown ![]() or []() syntax)
 // into a real markdown image, so admins can just paste a plain link and get
@@ -18,7 +19,7 @@ function autoImageify(text) {
 function ContentImage({ src, alt }) {
   return (
     <img
-      src={src}
+      src={normalizeImageSrc(src)}
       alt={alt || "diagram"}
       className="content-image"
       loading="lazy"

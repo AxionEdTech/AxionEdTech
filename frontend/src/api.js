@@ -155,6 +155,34 @@ export const api = {
     return { ok: true };
   },
 
+<<<<<<< HEAD
+=======
+  // ---- Author / About info (shown in the site footer) ----
+  async listAuthors() {
+    const { data, error } = await supabase.from("authors").select("*").order("sort_order").order("id");
+    if (error) throw new Error(error.message);
+    return { authors: data };
+  },
+
+  async createAuthor(payload) {
+    const { data, error } = await supabase.from("authors").insert(payload).select().single();
+    if (error) throw new Error(error.message);
+    return { id: data.id };
+  },
+
+  async updateAuthor(id, payload) {
+    const { error } = await supabase.from("authors").update(payload).eq("id", id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  },
+
+  async deleteAuthor(id) {
+    const { error } = await supabase.from("authors").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  },
+
+>>>>>>> eff2ac1 (Notice board, access tiers, PYQ sessions, mock test bulk entry, author footer)
   // ---- Mock tests ----
   async listTests() {
     const { data, error } = await supabase.rpc("list_mock_tests");
@@ -216,10 +244,10 @@ export const api = {
     return { attempts };
   },
 
-  async createTest({ subject, exam, title, duration_minutes, is_premium, questions }) {
+  async createTest({ subject, exam, title, duration_minutes, is_premium, is_preview, questions }) {
     const { data: test, error: tErr } = await supabase
       .from("mock_tests")
-      .insert({ subject, exam, title, duration_minutes, is_premium: !!is_premium })
+      .insert({ subject, exam, title, duration_minutes, is_premium: !!is_premium, is_preview: !!is_preview })
       .select().single();
     if (tErr) throw new Error(tErr.message);
 
@@ -249,10 +277,10 @@ export const api = {
     return { test, questions };
   },
 
-  async updateTest(id, { subject, exam, title, duration_minutes, is_premium, questions }) {
+  async updateTest(id, { subject, exam, title, duration_minutes, is_premium, is_preview, questions }) {
     const { error: tErr } = await supabase
       .from("mock_tests")
-      .update({ subject, exam, title, duration_minutes, is_premium: !!is_premium })
+      .update({ subject, exam, title, duration_minutes, is_premium: !!is_premium, is_preview: !!is_preview })
       .eq("id", id);
     if (tErr) throw new Error(tErr.message);
 

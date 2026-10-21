@@ -2,6 +2,7 @@ import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./AuthContext.jsx";
 import Navbar from "./components/Navbar.jsx";
+import SiteFooter from "./components/SiteFooter.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 
 import Home from "./pages/Home.jsx";
@@ -22,6 +23,7 @@ function Shell({ children }) {
     <>
       <Navbar />
       <main>{children}</main>
+      <SiteFooter />
     </>
   );
 }
@@ -53,7 +55,10 @@ export default function App() {
         <Route path="/notes/:id" element={<Shell><NoteView /></Shell>} />
         <Route path="/pyqs" element={<Shell><PYQ /></Shell>} />
 
-        <Route path="/tests" element={<ProtectedRoute><Shell><MockTestList /></Shell></ProtectedRoute>} />
+        {/* The test catalog (titles/metadata, never questions) follows the same
+            guest/free/paid tiering as Notes and PYQs. Starting an attempt still
+            always requires an account, since a score has to belong to somebody. */}
+        <Route path="/tests" element={<Shell><MockTestList /></Shell>} />
         <Route path="/tests/attempt/:testId" element={<ProtectedRoute><MockTestAttempt /></ProtectedRoute>} />
         <Route path="/tests/result/:attemptId" element={<ProtectedRoute><Shell><MockTestResult /></Shell></ProtectedRoute>} />
         <Route path="/results" element={<ProtectedRoute><Shell><MyResults /></Shell></ProtectedRoute>} />

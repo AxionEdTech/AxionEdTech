@@ -1,9 +1,23 @@
+<<<<<<< HEAD
 import React, { useEffect, useMemo, useState } from "react";
 import { api } from "../api.js";
 import { EXAMS, SUBJECTS, UNITS, SESSIONS } from "../taxonomy.js";
 import { groupNotes, assignPositions } from "../noteOrdering.js";
 
 const TABS = ["Notices", "Notes", "PYQs", "Mock Tests", "Manage Students"];
+=======
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { api } from "../api.js";
+import { EXAMS, SUBJECTS, UNITS, SESSIONS } from "../taxonomy.js";
+import { groupNotes, assignPositions } from "../noteOrdering.js";
+import { insertAtCursor } from "../textInsert.js";
+import { parseQuestionsText, questionsToText, SAMPLE_QUESTIONS_TEXT } from "../mockTestParser.js";
+import GoogleDriveImageButton from "../components/GoogleDriveImageButton.jsx";
+
+import { normalizeImageSrc } from "../driveImage.js";
+
+const TABS = ["Notices", "Author", "Notes", "PYQs", "Mock Tests", "Manage Students"];
+>>>>>>> eff2ac1 (Notice board, access tiers, PYQ sessions, mock test bulk entry, author footer)
 
 // Exam suggestions everywhere now come straight from the shared taxonomy so
 // this list can never drift out of sync with what the public pages expect.
@@ -52,10 +66,18 @@ export default function AdminPanel() {
       {status && <div className="form-note">{status}</div>}
 
       {tab === 0 && <AnnouncementsManager onDone={setStatus} />}
+<<<<<<< HEAD
       {tab === 1 && <NotesManager onDone={setStatus} />}
       {tab === 2 && <PYQManager onDone={setStatus} />}
       {tab === 3 && <TestManager onDone={setStatus} />}
       {tab === 4 && <StudentsPanel onDone={setStatus} />}
+=======
+      {tab === 1 && <AuthorsManager onDone={setStatus} />}
+      {tab === 2 && <NotesManager onDone={setStatus} />}
+      {tab === 3 && <PYQManager onDone={setStatus} />}
+      {tab === 4 && <TestManager onDone={setStatus} />}
+      {tab === 5 && <StudentsPanel onDone={setStatus} />}
+>>>>>>> eff2ac1 (Notice board, access tiers, PYQ sessions, mock test bulk entry, author footer)
     </div>
   );
 }
@@ -157,6 +179,132 @@ function AnnouncementForm({ editing, onDone, onCancelEdit }) {
 }
 
 // ============================================================================
+<<<<<<< HEAD
+=======
+// Author / About info (site footer)
+// ============================================================================
+function AuthorsManager({ onDone }) {
+  const [items, setItems] = useState(null);
+  const [editing, setEditing] = useState(null);
+
+  async function refresh() {
+    try { setItems((await api.listAuthors()).authors); } catch (err) { onDone(err.message); }
+  }
+  useEffect(() => { refresh(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function handleDelete(a) {
+    if (!window.confirm(`Remove "${a.name}" from the footer? This can't be undone.`)) return;
+    try { await api.deleteAuthor(a.id); onDone("Removed."); refresh(); } catch (err) { onDone(err.message); }
+  }
+
+  return (
+    <div>
+      <p className="page-sub">Shown in the footer on every page (except during an active mock test). Add yourself, or a co-author/team member.</p>
+      <AuthorForm
+        key={editing?.id ?? "new"}
+        editing={editing}
+        onCancelEdit={() => setEditing(null)}
+        onDone={(msg) => { onDone(msg); setEditing(null); refresh(); }}
+      />
+      <h2 className="section-heading">Existing entries</h2>
+      {!items && <p className="page-loading">Loading…</p>}
+      {items && items.length === 0 && <p className="empty-state">Nothing here yet — add one above.</p>}
+      <div className="admin-list">
+        {items && items.map((a) => (
+          <div key={a.id} className="admin-list-row">
+            <div>
+              <strong>{a.name}{!a.is_active ? " · Hidden" : ""}</strong>
+              <span className="admin-list-meta">{[a.email, a.instagram_url, a.youtube_url, a.website_url].filter(Boolean).join(" · ") || "No contact links yet"}</span>
+            </div>
+            <div className="admin-list-actions">
+              <button className="btn btn-ghost btn-sm" onClick={() => setEditing(a)}>Edit</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => handleDelete(a)}>Delete</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AuthorForm({ editing, onDone, onCancelEdit }) {
+  const [form, setForm] = useState(() => editing
+    ? {
+        name: editing.name, photo_url: editing.photo_url || "", bio: editing.bio || "",
+        email: editing.email || "", instagram_url: editing.instagram_url || "",
+        youtube_url: editing.youtube_url || "", website_url: editing.website_url || "",
+        sort_order: editing.sort_order ?? 0, is_active: editing.is_active,
+      }
+    : { name: "", photo_url: "", bio: "", email: "", instagram_url: "", youtube_url: "", website_url: "", sort_order: 0, is_active: true }
+  );
+  const [busy, setBusy] = useState(false);
+  const update = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  const isEditing = !!editing;
+
+  async function submit(e) {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      if (isEditing) {
+        await api.updateAuthor(editing.id, form);
+        onDone("Updated.");
+      } else {
+        await api.createAuthor(form);
+        onDone("Added to the footer.");
+        setForm({ name: "", photo_url: "", bio: "", email: "", instagram_url: "", youtube_url: "", website_url: "", sort_order: 0, is_active: true });
+      }
+    } catch (err) {
+      onDone(err.message);
+    } finally { setBusy(false); }
+  }
+
+  return (
+    <form className="form" onSubmit={submit}>
+      {isEditing && <p className="form-note">Editing "{editing.name}"</p>}
+      <div className="form-row">
+        <label>Name<input required value={form.name} onChange={(e) => update("name", e.target.value)} /></label>
+        <label>Email (optional)<input type="email" value={form.email} onChange={(e) => update("email", e.target.value)} placeholder="you@example.com" /></label>
+      </div>
+
+      <label>Photo — Google Drive share link (optional)
+        <input type="url" value={form.photo_url} onChange={(e) => update("photo_url", e.target.value)} placeholder="https://drive.google.com/file/d/..." />
+      </label>
+      {form.photo_url && (
+        <img
+          src={normalizeImageSrc(form.photo_url)} alt="Preview"
+          style={{ width: 72, height: 72, borderRadius: "50%", objectFit: "cover", border: "1px solid var(--border)" }}
+          onError={(e) => { e.currentTarget.style.display = "none"; }}
+        />
+      )}
+      <p className="field-hint">The Drive file needs sharing set to "Anyone with the link can view", same as images in Notes/PYQs.</p>
+
+      <label>Short bio (optional)<textarea rows={3} value={form.bio} onChange={(e) => update("bio", e.target.value)} placeholder="A line or two about you, shown next to your photo." /></label>
+
+      <div className="form-row">
+        <label>Instagram (optional)<input type="url" value={form.instagram_url} onChange={(e) => update("instagram_url", e.target.value)} placeholder="https://instagram.com/..." /></label>
+        <label>YouTube (optional)<input type="url" value={form.youtube_url} onChange={(e) => update("youtube_url", e.target.value)} placeholder="https://youtube.com/@..." /></label>
+      </div>
+      <label>Website / other link (optional)<input type="url" value={form.website_url} onChange={(e) => update("website_url", e.target.value)} /></label>
+
+      <div className="form-row">
+        <label>Order<input type="number" value={form.sort_order} onChange={(e) => update("sort_order", Number(e.target.value))} /></label>
+        <label style={{ flexDirection: "row", alignItems: "center", gap: 8, justifyContent: "flex-start" }}>
+          <input type="checkbox" checked={form.is_active} onChange={(e) => update("is_active", e.target.checked)} style={{ width: "auto" }} />
+          Visible in footer
+        </label>
+      </div>
+      <p className="field-hint">Order: lower numbers appear first when there's more than one entry.</p>
+
+      <div className="form-row">
+        <button className="btn btn-primary" disabled={busy}>{busy ? "Saving…" : isEditing ? "Update" : "Add to footer"}</button>
+        {isEditing && <button type="button" className="btn btn-ghost" onClick={onCancelEdit}>Cancel</button>}
+      </div>
+    </form>
+  );
+}
+
+// ============================================================================
+>>>>>>> eff2ac1 (Notice board, access tiers, PYQ sessions, mock test bulk entry, author footer)
 // Notes
 // ============================================================================
 function NotesManager({ onDone }) {
@@ -291,6 +439,7 @@ function NoteForm({ editing, onDone, onCancelEdit }) {
     : { exam: "", subject: "", unit: "", title: "", content: "", is_premium: false, is_preview: false }
   );
   const [busy, setBusy] = useState(false);
+  const contentRef = useRef(null);
   const update = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const isEditing = !!editing;
 
@@ -355,8 +504,17 @@ function NoteForm({ editing, onDone, onCancelEdit }) {
         </select>
       </label>
       <label>Title<input required value={form.title} onChange={(e) => update("title", e.target.value)} /></label>
+<<<<<<< HEAD
       <label>Content<textarea required rows={10} value={form.content} onChange={(e) => update("content", e.target.value)} /></label>
       <p className="field-hint">Formatting works here: ## heading, **bold**, * bullet list, $E=mc^2$ inline math, $$...$$ block math, or paste an image link directly.</p>
+=======
+      <div className="field-label-row">
+        <label htmlFor="note-content">Content</label>
+        <GoogleDriveImageButton onInsert={(url) => insertAtCursor(contentRef, form.content, (v) => update("content", v), `\n![](${url})\n`)} />
+      </div>
+      <textarea id="note-content" ref={contentRef} required rows={10} value={form.content} onChange={(e) => update("content", e.target.value)} />
+      <p className="field-hint">Formatting works here: ## heading, **bold**, * bullet list, $E=mc^2$ inline math, $$...$$ block math. "Add image from Drive" needs the file's sharing set to "Anyone with the link can view".</p>
+>>>>>>> eff2ac1 (Notice board, access tiers, PYQ sessions, mock test bulk entry, author footer)
       <div className="form-row">
         <label style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <input type="checkbox" checked={form.is_preview} disabled={form.is_premium} onChange={(e) => update("is_preview", e.target.checked)} style={{ width: "auto" }} />
@@ -430,6 +588,7 @@ function PYQForm({ editing, onDone, onCancelEdit }) {
     : { exam: "", subject: "", year: new Date().getFullYear(), session: "", part: "A", content: "", is_premium: false, is_preview: false }
   );
   const [busy, setBusy] = useState(false);
+  const contentRef = useRef(null);
   const update = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const isEditing = !!editing;
 
@@ -475,8 +634,17 @@ function PYQForm({ editing, onDone, onCancelEdit }) {
         </label>
       </div>
       <p className="field-hint">Leave Session blank for an exam that runs once a year. Fill it in for exams like CSIR NET, which is held twice a year, so both papers from the same year stay distinct.</p>
+<<<<<<< HEAD
       <label>Content<textarea required rows={10} value={form.content} onChange={(e) => update("content", e.target.value)} /></label>
       <p className="field-hint">One box for everything — question, options, and the answer. Formatting works the same as Notes: ## heading, **bold**, * bullet list, $E=mc^2$ inline math, $$...$$ block math, or paste an image link directly. Since there's no separate answer field anymore, students will see the whole thing at once (no "reveal answer" step) — so write it the way you'd want it read straight through, e.g.:</p>
+=======
+      <div className="field-label-row">
+        <label htmlFor="pyq-content">Content</label>
+        <GoogleDriveImageButton onInsert={(url) => insertAtCursor(contentRef, form.content, (v) => update("content", v), `\n![](${url})\n`)} />
+      </div>
+      <textarea id="pyq-content" ref={contentRef} required rows={10} value={form.content} onChange={(e) => update("content", e.target.value)} />
+      <p className="field-hint">One box for everything — question, options, and the answer. Formatting works the same as Notes: ## heading, **bold**, * bullet list, $E=mc^2$ inline math, $$...$$ block math. Use "Add image from Drive" above for a picture. Since there's no separate answer field anymore, students will see the whole thing at once (no "reveal answer" step) — so write it the way you'd want it read straight through, e.g.:</p>
+>>>>>>> eff2ac1 (Notice board, access tiers, PYQ sessions, mock test bulk entry, author footer)
       <pre className="field-example">{`Which organelle is the primary site of ATP synthesis?
 
 A) Golgi apparatus
@@ -545,7 +713,9 @@ function TestManager({ onDone }) {
           <div key={t.id} className="admin-list-row">
             <div>
               <strong>{t.title}</strong>
-              <span className="admin-list-meta">{t.exam} · {t.subject} · {t.question_count} questions{t.is_premium ? " · Paid" : ""}</span>
+              <span className="admin-list-meta">
+                {t.exam} · {t.subject} · {t.question_count} questions{t.is_premium ? " · Paid" : ""}{t.is_preview ? " · Preview" : ""}
+              </span>
             </div>
             <div className="admin-list-actions">
               <button className="btn btn-ghost btn-sm" onClick={() => handleEdit(t)}>Edit</button>
@@ -560,23 +730,60 @@ function TestManager({ onDone }) {
 
 function TestForm({ editing, onDone, onCancelEdit }) {
   const [form, setForm] = useState(() => editing
-    ? { exam: editing.exam, subject: editing.subject, title: editing.title, duration_minutes: editing.duration_minutes, is_premium: editing.is_premium }
-    : { exam: "", subject: "", title: "", duration_minutes: 180, is_premium: false }
+    ? { exam: editing.exam, subject: editing.subject, title: editing.title, duration_minutes: editing.duration_minutes, is_premium: editing.is_premium, is_preview: !!editing.is_preview }
+    : { exam: "", subject: "", title: "", duration_minutes: 180, is_premium: false, is_preview: false }
   );
+  const [useJsonMode, setUseJsonMode] = useState(false);
+  const [simpleText, setSimpleText] = useState(() => editing ? questionsToText(editing.questions) : SAMPLE_QUESTIONS_TEXT);
   const [questionsJson, setQuestionsJson] = useState(() => editing
     ? JSON.stringify(editing.questions.map(({ part, question, option_a, option_b, option_c, option_d, correct_option, marks, negative_marks }) =>
         ({ part, question, option_a, option_b, option_c, option_d, correct_option, marks, negative_marks })), null, 2)
     : SAMPLE_QUESTIONS_JSON
   );
   const [busy, setBusy] = useState(false);
+  const simpleRef = useRef(null);
+  const jsonRef = useRef(null);
   const update = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const isEditing = !!editing;
 
+  function updatePremium(isPremium) {
+    setForm((f) => ({ ...f, is_premium: isPremium, is_preview: isPremium ? false : f.is_preview }));
+  }
+
+  // Live feedback as the admin types/pastes, instead of finding out something
+  // was wrong only after hitting Save — this is what actually makes bulk
+  // entry fast: fix a typo, see the count update immediately.
+  const parsed = useMemo(() => (useJsonMode ? null : parseQuestionsText(simpleText)), [simpleText, useJsonMode]);
+
+  function insertImage(url) {
+    if (useJsonMode) insertAtCursor(jsonRef, questionsJson, setQuestionsJson, `![](${url})`);
+    else insertAtCursor(simpleRef, simpleText, setSimpleText, `\n![](${url})\n`);
+  }
+
   async function submit(e) {
     e.preventDefault();
+    let questions;
+    if (useJsonMode) {
+      try {
+        questions = JSON.parse(questionsJson);
+      } catch {
+        onDone("The questions field isn't valid JSON — check the format, or switch back to Simple text.");
+        return;
+      }
+    } else {
+      if (parsed.errors.length) {
+        onDone(`Fix these before saving — ${parsed.errors.join(" ")}`);
+        return;
+      }
+      if (parsed.questions.length === 0) {
+        onDone("No questions found. Check the format shown below the box.");
+        return;
+      }
+      questions = parsed.questions;
+    }
+
     setBusy(true);
     try {
-      const questions = JSON.parse(questionsJson);
       if (isEditing) {
         await api.updateTest(editing.id, { ...form, questions });
         onDone("Mock test updated.");
@@ -585,7 +792,7 @@ function TestForm({ editing, onDone, onCancelEdit }) {
         onDone(`Mock test created with ${questions.length} questions.`);
       }
     } catch (err) {
-      onDone(err.message.includes("JSON") ? "The questions field isn't valid JSON — check the format." : err.message);
+      onDone(err.message);
     } finally { setBusy(false); }
   }
 
@@ -601,15 +808,54 @@ function TestForm({ editing, onDone, onCancelEdit }) {
         <label>Duration (minutes)<input required type="number" value={form.duration_minutes} onChange={(e) => update("duration_minutes", Number(e.target.value))} /></label>
         <label>Title<input required value={form.title} onChange={(e) => update("title", e.target.value)} /></label>
       </div>
-      <label style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-        <input type="checkbox" checked={form.is_premium} onChange={(e) => update("is_premium", e.target.checked)} style={{ width: "auto" }} />
-        Paid plan only
-      </label>
-      <label>
-        Questions (JSON array — part, question, option_a..d, correct_option, marks, negative_marks)
-        <textarea required rows={14} className="mono" value={questionsJson} onChange={(e) => setQuestionsJson(e.target.value)} />
-      </label>
-      <p className="field-hint">Math and images work the same way inside these JSON strings — $E=mc^2$, $$...$$, or ![caption](link).</p>
+      <div className="form-row">
+        <label style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <input type="checkbox" checked={form.is_preview} disabled={form.is_premium} onChange={(e) => update("is_preview", e.target.checked)} style={{ width: "auto" }} />
+          Show to visitors without logging in (catalog only — starting a test always needs an account)
+        </label>
+        <label style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <input type="checkbox" checked={form.is_premium} onChange={(e) => updatePremium(e.target.checked)} style={{ width: "auto" }} />
+          Paid plan only
+        </label>
+      </div>
+
+      <div className="field-label-row">
+        <label htmlFor="test-questions">Questions</label>
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <GoogleDriveImageButton onInsert={insertImage} />
+          <button type="button" className="btn-link" onClick={() => setUseJsonMode((v) => !v)}>
+            {useJsonMode ? "Use simple text instead" : "Advanced: paste as JSON instead"}
+          </button>
+        </div>
+      </div>
+
+      {!useJsonMode ? (
+        <>
+          <textarea
+            id="test-questions" ref={simpleRef} required rows={16} className="mono"
+            value={simpleText} onChange={(e) => setSimpleText(e.target.value)}
+          />
+          <p className="field-hint">
+            One question per block, separated by a blank line — question text, then <code>A)</code>–<code>D)</code> on their own lines,
+            then <code>Answer: B</code>. <code>Marks:</code>, <code>Negative:</code> and <code>Part:</code> are optional (default 2, 0.5, A).
+            Paste as many as you like at once — this is much faster than typing them one at a time, and there's no JSON syntax to get right.
+          </p>
+          <div className="parse-feedback">
+            {parsed.questions.length > 0 && (
+              <span className="parse-ok">✓ {parsed.questions.length} question{parsed.questions.length === 1 ? "" : "s"} ready to save.</span>
+            )}
+            {parsed.errors.length > 0 && (
+              <ul className="parse-errors">{parsed.errors.map((e, i) => <li key={i}>{e}</li>)}</ul>
+            )}
+          </div>
+        </>
+      ) : (
+        <>
+          <textarea id="test-questions" ref={jsonRef} required rows={16} className="mono" value={questionsJson} onChange={(e) => setQuestionsJson(e.target.value)} />
+          <p className="field-hint">JSON array — part, question, option_a..d, correct_option, marks, negative_marks. Math and images work the same way inside these strings — $E=mc^2$, $$...$$, or ![caption](link).</p>
+        </>
+      )}
+
       <div className="form-row">
         <button className="btn btn-primary" disabled={busy}>{busy ? "Saving…" : isEditing ? "Update mock test" : "Create mock test"}</button>
         {isEditing && <button type="button" className="btn btn-ghost" onClick={onCancelEdit}>Cancel</button>}
