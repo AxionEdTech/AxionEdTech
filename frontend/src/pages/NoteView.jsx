@@ -62,7 +62,7 @@ export default function NoteView() {
   const { note, watermark } = data;
 
   return (
-    <div className="page">
+    <div className="page page-reading">
       <Link to="/notes" className="back-link">← Back to notes</Link>
       <div className="note-reader">
         <div className="note-reader-watermark" aria-hidden="true">

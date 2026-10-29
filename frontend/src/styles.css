@@ -38,6 +38,18 @@ button { font-family: inherit; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .page { max-width: 880px; margin: 0 auto; padding: 40px 24px 80px; }
+/* Reading pages (a note, the PYQ sheet) get a wider column so tables and figures have room.
+   1040px is deliberate: on a 1366px laptop it still leaves ~160px free on each side, which is
+   the width of a standard skyscraper ad. When ads go live, put them in those side gutters
+   (see .reading-rail below) rather than widening this column again. */
+.page-reading { max-width: 1040px; }
+/* Reserved for future ads: an empty side rail that only exists on screens wide enough to spare it. */
+.reading-rail { display: none; }
+@media (min-width: 1400px) {
+  .reading-rail { display: block; position: fixed; top: 96px; width: 160px; }
+  .reading-rail.left { left: max(8px, calc((100vw - 1040px) / 2 - 168px)); }
+  .reading-rail.right { right: max(8px, calc((100vw - 1040px) / 2 - 168px)); }
+}
 .page-loading { padding: 80px 24px; text-align: center; color: var(--muted); font-family: var(--font-mono); }
 .page-sub { color: var(--ink-soft); margin-top: -8px; margin-bottom: 28px; }
 .eyebrow {
@@ -170,7 +182,7 @@ button { font-family: inherit; }
 
 .note-reader {
   position: relative; background: var(--white); border: 1px solid var(--border);
-  border-radius: 10px; padding: 40px; overflow: hidden;
+  border-radius: 10px; padding: 32px 36px; overflow: hidden;
   user-select: none; -webkit-user-select: none;
 }
 .note-reader-watermark {
@@ -208,7 +220,7 @@ button { font-family: inherit; }
 .pyq-card { background: var(--white); border: 1px solid var(--border); border-radius: 10px; padding: 22px 24px; }
 .pyq-paper {
   position: relative; background: var(--white); border: 1px solid var(--border); border-radius: 10px;
-  padding: 4px 32px; box-shadow: 0 1px 2px rgba(22,33,62,0.03);
+  padding: 4px 28px; box-shadow: 0 1px 2px rgba(22,33,62,0.03);
 }
 .pyq-entry { padding: 26px 0; border-bottom: 1px dashed var(--border); }
 .pyq-entry:last-child { border-bottom: none; }
@@ -343,6 +355,9 @@ button { font-family: inherit; }
   .exam-palette { width: 100%; border-left: none; border-top: 1px solid var(--border); }
   .exam-palette-grid { grid-template-columns: repeat(8, 1fr); }
   .form-row { flex-direction: column; }
+  .page-reading { padding-left: 12px; padding-right: 12px; }
+  .note-reader { padding: 20px 16px; }
+  .pyq-paper { padding: 4px 14px; }
 }
 
 

@@ -131,7 +131,7 @@ export default function PYQ() {
   }
 
   return (
-    <div className="page">
+    <div className="page page-reading">
       <h1>Previous Year Papers</h1>
       <p className="page-sub">Read straight through — question, options, and answer are all shown together.</p>
 
