@@ -16,8 +16,10 @@ export default function GoogleDriveImageButton({ onInsert, label = "Add image fr
     setError("");
   }
 
-  function handleInsert(e) {
-    e.preventDefault();
+  // This sits inside the admin forms, so it must not be a <form> itself:
+  // nested forms are invalid HTML and the outer form (Save note, Add
+  // question…) could get submitted by the "Insert" click.
+  function handleInsert() {
     const url = driveImageUrl(link);
     if (!url) {
       setError('That doesn\'t look like a Google Drive file link — copy it from Drive\'s "Share" dialog.');
@@ -36,17 +38,21 @@ export default function GoogleDriveImageButton({ onInsert, label = "Add image fr
   }
 
   return (
-    <form className="drive-image-form" onSubmit={handleInsert}>
+    <div className="drive-image-form">
       <input
         autoFocus
         type="url"
         placeholder="Paste Google Drive share link…"
         value={link}
         onChange={(e) => setLink(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") { e.preventDefault(); handleInsert(); }
+          if (e.key === "Escape") close();
+        }}
       />
-      <button type="submit" className="btn btn-primary btn-sm">Insert</button>
+      <button type="button" className="btn btn-primary btn-sm" onClick={handleInsert}>Insert</button>
       <button type="button" className="btn btn-ghost btn-sm" onClick={close}>Cancel</button>
       {error && <span className="image-upload-error">{error}</span>}
-    </form>
+    </div>
   );
 }

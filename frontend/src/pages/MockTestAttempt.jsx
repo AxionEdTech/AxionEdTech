@@ -172,7 +172,7 @@ export default function MockTestAttempt() {
             <span>Question {currentIndex + 1} of {partQuestions.length}</span>
             <span className="exam-marks">+{current.marks} / −{current.negative_marks}</span>
           </div>
-          <p className="exam-question-text">{renderRich(current.question, `q${current.id}`)}</p>
+          <div className="exam-question-text">{renderRich(current.question, `q${current.id}`, { block: true })}</div>
           <div className="exam-options">
             {["A", "B", "C", "D"].map((opt) => (
               <label key={opt} className={`exam-option ${answers[current.id] === opt ? "selected" : ""}`}>
@@ -183,7 +183,7 @@ export default function MockTestAttempt() {
                   onChange={() => selectOption(opt)}
                 />
                 <span className="exam-option-letter">{opt}</span>
-                <span>{renderRich(current[`option_${opt.toLowerCase()}`], `q${current.id}o${opt}`)}</span>
+                <span className="exam-option-text">{renderRich(current[`option_${opt.toLowerCase()}`], `q${current.id}o${opt}`)}</span>
               </label>
             ))}
           </div>

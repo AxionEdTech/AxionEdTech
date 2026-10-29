@@ -99,3 +99,51 @@ git add -A && git commit -m "Controlled taxonomy + ordered sections for notes/PY
    every page except the exam-attempt screen. Supports more than one entry
    (e.g. a co-author) — each can be hidden independently without deleting it.
    Fully editable without a redeploy.
+
+## October 2026 — Tables, pictures in place, previews
+**No database migration needed** — this is a front-end change only (notes, PYQs and mock-test
+questions are still stored as plain text, so everything already saved keeps working).
+
+### Pictures (Google Drive)
+Paste the Drive **share link** anywhere in the text and the picture appears *exactly there*:
+between two sentences, on its own line, inside a table cell, or as a whole mock-test option
+(`A) https://drive.google.com/file/d/…/view?usp=sharing`). The "Add image from Drive" button
+still works too. The Drive file must be shared as **"Anyone with the link can view"**.
+
+- Works in Notes, PYQs, Notices, and mock-test questions/options — in both Simple text and JSON.
+- A link written as `[my text](link)` stays an ordinary link (use that for a PDF or any
+  Drive file that is *not* a picture). Links inside `` `code` `` stay literal text.
+- While a picture loads it holds its place in a framed box, so the text doesn't jump. If it
+  can't load (usually sharing isn't "Anyone with the link"), students see a short message
+  instead of a silent gap.
+
+### Tables
+- **Insert table** (Notes, PYQs, Mock Tests): pick columns/rows, type into the grid, insert.
+  Empty rows are left out. The first row is the heading row.
+- **Paste from Excel / Google Sheets / Word**: copy the cells and paste into the text box
+  (or into the table grid) — it becomes a table automatically.
+- Or write it by hand: a heading row, a `| --- | --- |` row, then one row per line.
+  `:---`, `:---:`, `---:` align a column left / centre / right.
+- A line break inside a cell: type `<br>`. A `|` inside a cell: write `\|`; inside maths
+  use `\vert` (e.g. `$\vert\psi\rangle$`) — the grid does both for you.
+- Wide tables scroll sideways inside their own box (with an edge shadow showing there is
+  more), instead of breaking the page layout.
+- **Mock tests, Simple text:** put the table between the question line and the `A)` options,
+  one row per line, each row starting with `|`. **JSON:** the table is just a string with
+  `\n` between rows — "Insert table" writes it with the escaping done.
+
+### Preview
+Notes/PYQs have a **Preview** button; Mock Tests has one that shows every question as the
+exam page will, with the correct option highlighted — check pictures and tables before saving.
+
+### Fixed along the way
+- "Add image from Drive" sat inside the admin `<form>` as a nested `<form>`; inserting an
+  image could also submit the outer form (saving a half-written note/question). It no
+  longer does.
+- Mock-test **results** lost their correct/incorrect highlighting when the PYQ layout was
+  reworked (the styles were removed but are still used there). Restored.
+- Tables were clipped by the note card (`overflow: hidden`). They now scroll in place.
+
+### Tests
+`cd frontend && npm test` runs a few quick checks of the link detection, table builder
+and mock-test parser (no extra installs needed).

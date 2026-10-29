@@ -44,7 +44,7 @@ export default function MockTestResult() {
           return (
             <div key={q.id} className="pyq-card">
               <div className="pyq-meta">Question {i + 1} · Part {q.part}</div>
-              <p className="pyq-question">{renderRich(q.question, `q${q.id}`)}</p>
+              <div className="pyq-question">{renderRich(q.question, `q${q.id}`, { block: true })}</div>
               <ul className="pyq-options">
                 {["A", "B", "C", "D"].map((opt) => {
                   const cls = opt === q.correct_option ? "correct" : (opt === given && !isCorrect ? "incorrect" : "");

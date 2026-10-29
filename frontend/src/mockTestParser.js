@@ -21,7 +21,11 @@
 // "Q1:" etc. on the question line is stripped automatically. Any image link
 // (pasted directly, or inserted via the "Add image" button) just becomes
 // part of the question or option text — it renders as a picture automatically,
-// the same as Notes and PYQs.
+// the same as Notes and PYQs. A table can sit between the question text and
+// the options: write its rows on consecutive lines, each starting with "|"
+// (the "Insert table" button or pasting cells from a spreadsheet does this).
+
+import { separateTables } from "./richText.js";
 
 const OPTION_RE = /^([A-Da-d])[).:\-]\s*(.*)$/;
 const ANSWER_RE = /^(?:ans(?:wer)?|correct(?:\s*answer)?)\s*[:.\-]?\s*([A-Da-d])\b/i;
@@ -29,6 +33,12 @@ const MARKS_RE = /^marks?\s*[:.\-]?\s*\+?([\d.]+)/i;
 const NEG_RE = /^neg(?:ative)?(?:\s*marks?)?\s*[:.\-]?\s*-?([\d.]+)/i;
 const PART_RE = /^part\s*[:.\-]?\s*([A-Ca-c])/i;
 const LEADING_NUM_RE = /^(?:q\s*\d*\s*[:.)]\s*|\d+\s*[).]\s*)/i;
+
+// Question lines are joined with a single newline (a blank line would mean
+// "next question" here), but a markdown table must be separated from the text
+// around it by a blank line — otherwise the sentence after the table is read
+// as one more table row. separateTables adds that blank line.
+const joinQuestionLines = (lines) => separateTables(lines.join("\n"));
 
 export function parseQuestionsText(raw) {
   const blocks = (raw || "")
@@ -70,7 +80,7 @@ export function parseQuestionsText(raw) {
       errors.push(`Question ${num}: couldn't find any question text.`);
       return;
     }
-    const questionText = questionLines.join("\n").replace(LEADING_NUM_RE, "").trim();
+    const questionText = joinQuestionLines(questionLines).replace(LEADING_NUM_RE, "").trim();
 
     const missing = ["A", "B", "C", "D"].filter((L) => !options[L]);
     if (missing.length) {
@@ -101,7 +111,9 @@ export function parseQuestionsText(raw) {
 export function questionsToText(questions) {
   return questions.map((q) =>
     [
-      q.question,
+      // blank lines would split this into several questions when re-parsed;
+      // the parser puts them back around tables by itself
+      String(q.question).replace(/\n{2,}/g, "\n"),
       `A) ${q.option_a}`,
       `B) ${q.option_b}`,
       `C) ${q.option_c}`,

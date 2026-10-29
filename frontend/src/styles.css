@@ -183,7 +183,7 @@ button { font-family: inherit; }
 .note-footer-note { margin-top: 24px; font-size: 0.78rem; color: var(--muted); font-family: var(--font-mono); }
 
 .content-image {
-  display: block; max-width: 100%; height: auto; margin: 12px 0;
+  display: block; max-width: 100%; height: auto; margin: 0;
   border-radius: 8px; border: 1px solid var(--border);
 }
 .katex-block { display: block; margin: 12px 0; overflow-x: auto; }
@@ -424,3 +424,106 @@ button { font-family: inherit; }
 }
 .reorder-item:not(:last-child) { border-bottom: 1px dashed var(--border); }
 .reorder-controls { display: flex; gap: 6px; flex-shrink: 0; }
+
+
+/* ---------- Tables, pictures and previews inside rich content ---------- */
+
+/* A table scrolls sideways inside its own box. Without this a wide table
+   either stretched the page or got clipped by .note-reader (overflow:hidden),
+   which is what made tables look broken and shift around. */
+.table-shell { position: relative; margin: 18px 0; max-width: 100%; }
+.table-wrap {
+  max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: thin;
+  background: var(--white); border: 1px solid var(--border); border-radius: 8px;
+}
+.table-wrap:focus-visible { outline-offset: 2px; }
+/* Edge shadows: only visible while there is more to scroll to that side. */
+.table-shell::before, .table-shell::after {
+  content: ""; position: absolute; top: 1px; bottom: 1px; width: 32px; z-index: 1;
+  pointer-events: none; opacity: 0; transition: opacity 0.15s;
+}
+.table-shell::before { left: 1px; border-radius: 7px 0 0 7px; background: linear-gradient(to right, rgba(22,33,62,0.18), rgba(22,33,62,0)); }
+.table-shell::after { right: 1px; border-radius: 0 7px 7px 0; background: linear-gradient(to left, rgba(22,33,62,0.18), rgba(22,33,62,0)); }
+.table-shell.can-scroll-left::before, .table-shell.can-scroll-right::after { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .table-shell::before, .table-shell::after { transition: none; } }
+.table-wrap table {
+  width: 100%; border-collapse: collapse; font-size: 0.92rem; line-height: 1.5;
+  color: var(--text); font-variant-numeric: tabular-nums;
+}
+.table-wrap th, .table-wrap td {
+  padding: 10px 14px; text-align: left; vertical-align: top; min-width: 100px;
+  font-weight: 400; border-bottom: 1px solid var(--border);
+}
+.table-wrap th {
+  background: var(--paper); color: var(--ink); font-weight: 600;
+  border-bottom: 1.5px solid var(--ink-soft);
+}
+.table-wrap tbody tr:nth-child(even) td { background: #FCFBF8; }
+.table-wrap tbody tr:last-child td { border-bottom: none; }
+.table-wrap .content-image-frame { margin: 4px 0; }
+.table-wrap .katex-display { margin: 0.3em 0; }
+
+/* A picture reserves a framed box while it loads, so text doesn't jump. */
+.content-image-frame {
+  display: block; width: min(100%, 560px); min-height: 150px; margin: 14px 0;
+  border: 1px dashed var(--border); border-radius: 8px; background: var(--paper);
+}
+.content-image-frame.is-loaded {
+  width: fit-content; max-width: 100%; min-height: 0; border: none; background: none;
+}
+.content-image-fallback {
+  display: block; margin: 14px 0; padding: 12px 14px; border: 1px dashed var(--warn);
+  border-radius: 8px; background: var(--warn-soft); color: var(--ink-soft);
+  font-size: 0.85rem; line-height: 1.5;
+}
+.rich-block > :last-child { margin-bottom: 0; }
+.exam-option-text { flex: 1; min-width: 0; }
+
+/* Mock-test result options (these rules existed before the PYQ rework
+   removed them; the results page and the admin preview still rely on them). */
+.pyq-options { list-style: none; padding: 0; margin: 0 0 12px; display: flex; flex-direction: column; gap: 6px; }
+.pyq-options li { padding: 8px 12px; border-radius: 6px; background: var(--paper); font-size: 0.92rem; }
+.pyq-options li.correct { background: var(--accent-soft); color: #0B6B54; font-weight: 600; }
+.pyq-options li.incorrect { background: var(--danger-soft); color: var(--danger); font-weight: 600; }
+.pyq-explanation { font-size: 0.88rem; color: var(--ink-soft); border-left: 3px solid var(--accent); padding-left: 12px; margin: 0; }
+
+/* ---------- Admin: content tools (image, table, preview) ---------- */
+.editor-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: flex-end; }
+.table-builder {
+  display: flex; flex-direction: column; gap: 12px; padding: 14px;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--white);
+}
+.table-builder-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; font-size: 0.82rem; color: var(--ink-soft); }
+.stepper { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
+.stepper strong { min-width: 1.2em; text-align: center; font-family: var(--font-mono); }
+.stepper-btn {
+  width: 28px; height: 28px; border: 1px solid var(--border); border-radius: 6px;
+  background: var(--white); color: var(--ink); font-size: 1rem; line-height: 1; cursor: pointer;
+}
+.stepper-btn:hover { border-color: var(--ink-soft); }
+.table-builder-tip { color: var(--muted); font-style: italic; }
+.table-builder-scroll { overflow-x: auto; padding-bottom: 4px; }
+.table-builder-grid {
+  display: grid; gap: 6px; min-width: min-content;
+  grid-template-columns: repeat(var(--cols), minmax(130px, 1fr));
+}
+.table-builder-grid input { padding: 7px 9px; font-size: 0.86rem; min-width: 0; }
+.table-builder-grid input.is-head { font-weight: 600; background: var(--accent-soft); }
+.table-builder-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.content-preview {
+  padding: 22px 24px; border: 1px solid var(--border); border-radius: 8px; background: var(--white);
+}
+.content-preview-label { margin: 0 0 12px; font-family: var(--font-mono); font-size: 0.72rem; color: var(--muted); }
+.questions-preview {
+  display: flex; flex-direction: column; gap: 12px; max-height: 560px; overflow-y: auto;
+  padding: 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--paper);
+}
+.questions-preview .content-preview-label { margin: 0; }
+
+/* Phones: give tables and pictures more of the screen. */
+@media (max-width: 720px) {
+  .note-reader { padding: 22px 18px; }
+  .pyq-paper { padding: 4px 18px; }
+  .exam-question-panel { padding: 22px 18px; }
+  .content-preview { padding: 16px; }
+}

@@ -5,6 +5,10 @@ import { groupNotes, assignPositions } from "../noteOrdering.js";
 import { insertAtCursor } from "../textInsert.js";
 import { parseQuestionsText, questionsToText, SAMPLE_QUESTIONS_TEXT } from "../mockTestParser.js";
 import GoogleDriveImageButton from "../components/GoogleDriveImageButton.jsx";
+import ContentEditor from "../components/ContentEditor.jsx";
+import TableBuilder from "../components/TableBuilder.jsx";
+import { renderRich } from "../richContent.jsx";
+import { jsonEscape, tsvToMarkdownTable } from "../tableMarkdown.js";
 
 import { normalizeImageSrc } from "../driveImage.js";
 
@@ -420,7 +424,6 @@ function NoteForm({ editing, onDone, onCancelEdit }) {
     : { exam: "", subject: "", unit: "", title: "", content: "", is_premium: false, is_preview: false }
   );
   const [busy, setBusy] = useState(false);
-  const contentRef = useRef(null);
   const update = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const isEditing = !!editing;
 
@@ -485,12 +488,9 @@ function NoteForm({ editing, onDone, onCancelEdit }) {
         </select>
       </label>
       <label>Title<input required value={form.title} onChange={(e) => update("title", e.target.value)} /></label>
-      <div className="field-label-row">
-        <label htmlFor="note-content">Content</label>
-        <GoogleDriveImageButton onInsert={(url) => insertAtCursor(contentRef, form.content, (v) => update("content", v), `\n![](${url})\n`)} />
-      </div>
-      <textarea id="note-content" ref={contentRef} required rows={10} value={form.content} onChange={(e) => update("content", e.target.value)} />
-      <p className="field-hint">Formatting works here: ## heading, **bold**, * bullet list, $E=mc^2$ inline math, $$...$$ block math. "Add image from Drive" needs the file's sharing set to "Anyone with the link can view".</p>
+      <ContentEditor id="note-content" value={form.content} onChange={(v) => update("content", v)} required>
+        <p className="field-hint">Formatting works here: ## heading, **bold**, * bullet list, $E=mc^2$ inline math, $$...$$ block math. For a picture, paste its Google Drive share link right where you want it to appear (or use "Add image from Drive"); the file must be shared as "Anyone with the link can view". For a table, use "Insert table", or copy cells from Excel / Google Sheets and paste them into the box. "Preview" shows the result.</p>
+      </ContentEditor>
       <div className="form-row">
         <label style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <input type="checkbox" checked={form.is_preview} disabled={form.is_premium} onChange={(e) => update("is_preview", e.target.checked)} style={{ width: "auto" }} />
@@ -564,7 +564,6 @@ function PYQForm({ editing, onDone, onCancelEdit }) {
     : { exam: "", subject: "", year: new Date().getFullYear(), session: "", part: "A", content: "", is_premium: false, is_preview: false }
   );
   const [busy, setBusy] = useState(false);
-  const contentRef = useRef(null);
   const update = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const isEditing = !!editing;
 
@@ -610,12 +609,8 @@ function PYQForm({ editing, onDone, onCancelEdit }) {
         </label>
       </div>
       <p className="field-hint">Leave Session blank for an exam that runs once a year. Fill it in for exams like CSIR NET, which is held twice a year, so both papers from the same year stay distinct.</p>
-      <div className="field-label-row">
-        <label htmlFor="pyq-content">Content</label>
-        <GoogleDriveImageButton onInsert={(url) => insertAtCursor(contentRef, form.content, (v) => update("content", v), `\n![](${url})\n`)} />
-      </div>
-      <textarea id="pyq-content" ref={contentRef} required rows={10} value={form.content} onChange={(e) => update("content", e.target.value)} />
-      <p className="field-hint">One box for everything — question, options, and the answer. Formatting works the same as Notes: ## heading, **bold**, * bullet list, $E=mc^2$ inline math, $$...$$ block math. Use "Add image from Drive" above for a picture. Since there's no separate answer field anymore, students will see the whole thing at once (no "reveal answer" step) — so write it the way you'd want it read straight through, e.g.:</p>
+      <ContentEditor id="pyq-content" value={form.content} onChange={(v) => update("content", v)} required>
+      <p className="field-hint">One box for everything — question, options, and the answer. Formatting works the same as Notes: ## heading, **bold**, * bullet list, $E=mc^2$ inline math, $$...$$ block math. Paste a Google Drive share link where a picture belongs, and use "Insert table" (or paste cells from a spreadsheet) for tables such as match-the-following. Since there's no separate answer field anymore, students will see the whole thing at once (no "reveal answer" step) — so write it the way you'd want it read straight through, e.g.:</p>
       <pre className="field-example">{`Which organelle is the primary site of ATP synthesis?
 
 A) Golgi apparatus
@@ -626,6 +621,7 @@ D) Lysosome
 **Answer: B**
 
 The inner mitochondrial membrane houses the electron transport chain.`}</pre>
+      </ContentEditor>
       <div className="form-row">
         <label style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <input type="checkbox" checked={form.is_preview} disabled={form.is_premium} onChange={(e) => update("is_preview", e.target.checked)} style={{ width: "auto" }} />
@@ -699,6 +695,32 @@ function TestManager({ onDone }) {
   );
 }
 
+// Shows questions the way students will meet them, rendered by the same code
+// as the exam and result pages, so a missing picture or a broken table shows
+// up here — before the test is saved.
+function QuestionsPreview({ questions, error }) {
+  if (error) return <p className="form-error">{error}</p>;
+  if (!questions.length) return <p className="field-hint" style={{ margin: 0 }}>No questions to preview yet.</p>;
+  return (
+    <div className="questions-preview">
+      <p className="content-preview-label">Preview — {questions.length} question{questions.length === 1 ? "" : "s"}, correct option highlighted</p>
+      {questions.map((q, i) => (
+        <div key={i} className="pyq-card">
+          <div className="pyq-meta">Question {i + 1} · Part {q.part || "A"} · +{q.marks ?? 2} / −{q.negative_marks ?? 0.5}</div>
+          <div className="pyq-question">{renderRich(q.question, `pq${i}`, { block: true })}</div>
+          <ul className="pyq-options">
+            {["A", "B", "C", "D"].map((opt) => (
+              <li key={opt} className={opt === q.correct_option ? "correct" : ""}>
+                <strong>{opt}.</strong> {renderRich(q[`option_${opt.toLowerCase()}`], `pq${i}${opt}`)}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function TestForm({ editing, onDone, onCancelEdit }) {
   const [form, setForm] = useState(() => editing
     ? { exam: editing.exam, subject: editing.subject, title: editing.title, duration_minutes: editing.duration_minutes, is_premium: editing.is_premium, is_preview: !!editing.is_preview }
@@ -714,6 +736,8 @@ function TestForm({ editing, onDone, onCancelEdit }) {
   const [busy, setBusy] = useState(false);
   const simpleRef = useRef(null);
   const jsonRef = useRef(null);
+  const [tableOpen, setTableOpen] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
   const update = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const isEditing = !!editing;
 
@@ -726,9 +750,40 @@ function TestForm({ editing, onDone, onCancelEdit }) {
   // entry fast: fix a typo, see the count update immediately.
   const parsed = useMemo(() => (useJsonMode ? null : parseQuestionsText(simpleText)), [simpleText, useJsonMode]);
 
+  // What the Preview shows: the parsed Simple-text questions, or the JSON if
+  // it parses yet (it's often half-typed, so a failure just says so).
+  const preview = useMemo(() => {
+    if (!showPreview) return { list: [], error: "" };
+    if (!useJsonMode) return { list: parsed.questions, error: "" };
+    try {
+      const value = JSON.parse(questionsJson);
+      if (!Array.isArray(value)) throw new Error("not an array");
+      return { list: value.filter((q) => q && typeof q === "object"), error: "" };
+    } catch {
+      return { list: [], error: "The JSON isn't valid yet, so there's nothing to preview." };
+    }
+  }, [showPreview, useJsonMode, parsed, questionsJson]);
+
   function insertImage(url) {
     if (useJsonMode) insertAtCursor(jsonRef, questionsJson, setQuestionsJson, `![](${url})`);
     else insertAtCursor(simpleRef, simpleText, setSimpleText, `\n![](${url})\n`);
+  }
+
+  // A table inside a question. In Simple text a blank line would start a new
+  // question, so rows go on consecutive lines (the parser adds the blank lines
+  // markdown needs around a table). In JSON the snippet is escaped to sit
+  // safely inside a string: real newlines become \n, quotes become \".
+  function insertTable(md) {
+    if (useJsonMode) insertAtCursor(jsonRef, questionsJson, setQuestionsJson, jsonEscape(`\n\n${md}\n\n`));
+    else insertAtCursor(simpleRef, simpleText, setSimpleText, `\n${md}\n`);
+  }
+
+  // Cells copied from a spreadsheet and pasted into Simple text become a table.
+  function handleSimplePaste(e) {
+    const md = tsvToMarkdownTable(e.clipboardData.getData("text/plain"));
+    if (!md) return;
+    e.preventDefault();
+    insertTable(md);
   }
 
   async function submit(e) {
@@ -792,24 +847,33 @@ function TestForm({ editing, onDone, onCancelEdit }) {
 
       <div className="field-label-row">
         <label htmlFor="test-questions">Questions</label>
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        <div className="editor-tools">
           <GoogleDriveImageButton onInsert={insertImage} />
+          <button type="button" className="btn btn-ghost btn-sm" aria-expanded={tableOpen} onClick={() => setTableOpen((v) => !v)}>
+            ▦ Insert table
+          </button>
+          <button type="button" className="btn btn-ghost btn-sm" aria-pressed={showPreview} onClick={() => setShowPreview((v) => !v)}>
+            {showPreview ? "Hide preview" : "Preview"}
+          </button>
           <button type="button" className="btn-link" onClick={() => setUseJsonMode((v) => !v)}>
             {useJsonMode ? "Use simple text instead" : "Advanced: paste as JSON instead"}
           </button>
         </div>
       </div>
+      {tableOpen && <TableBuilder onInsert={insertTable} onClose={() => setTableOpen(false)} />}
 
       {!useJsonMode ? (
         <>
           <textarea
             id="test-questions" ref={simpleRef} required rows={16} className="mono"
-            value={simpleText} onChange={(e) => setSimpleText(e.target.value)}
+            value={simpleText} onChange={(e) => setSimpleText(e.target.value)} onPaste={handleSimplePaste}
           />
           <p className="field-hint">
             One question per block, separated by a blank line — question text, then <code>A)</code>–<code>D)</code> on their own lines,
             then <code>Answer: B</code>. <code>Marks:</code>, <code>Negative:</code> and <code>Part:</code> are optional (default 2, 0.5, A).
             Paste as many as you like at once — this is much faster than typing them one at a time, and there's no JSON syntax to get right.
+            For a picture, paste its Google Drive share link on its own line, or inside the question or an option (<code>A) https://drive.google.com/…</code>).
+            For a table, use "Insert table" — it goes between the question and the options, one row per line, each starting with <code>|</code>.
           </p>
           <div className="parse-feedback">
             {parsed.questions.length > 0 && (
@@ -823,9 +887,11 @@ function TestForm({ editing, onDone, onCancelEdit }) {
       ) : (
         <>
           <textarea id="test-questions" ref={jsonRef} required rows={16} className="mono" value={questionsJson} onChange={(e) => setQuestionsJson(e.target.value)} />
-          <p className="field-hint">JSON array — part, question, option_a..d, correct_option, marks, negative_marks. Math and images work the same way inside these strings — $E=mc^2$, $$...$$, or ![caption](link).</p>
+          <p className="field-hint">JSON array — part, question, option_a..d, correct_option, marks, negative_marks. Math, images and tables work the same way inside these strings — $E=mc^2$, a pasted Google Drive share link, or a table written with <code>\n</code> between its rows ("Insert table" adds one with the escaping done for you).</p>
         </>
       )}
+
+      {showPreview && <QuestionsPreview questions={preview.list} error={preview.error} />}
 
       <div className="form-row">
         <button className="btn btn-primary" disabled={busy}>{busy ? "Saving…" : isEditing ? "Update mock test" : "Create mock test"}</button>
