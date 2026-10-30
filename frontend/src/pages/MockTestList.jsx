@@ -18,8 +18,13 @@ export default function MockTestList() {
   async function start(testId) {
     setStarting(testId);
     try {
-      const { attempt } = await api.startTest(testId);
-      navigate(`/tests/attempt/${attempt.id}`);
+      // Starting here (rather than only on the exam page) means problems like
+      // "requires a paid plan" show up on this list instead of on a blank exam page.
+      await api.startTest(testId);
+      // The exam page's route is /tests/attempt/:testId and takes a TEST id —
+      // it re-opens this student's unfinished attempt by itself. Passing the
+      // attempt id here looked up a different (or missing) test: "Test not found".
+      navigate(`/tests/attempt/${testId}`);
     } catch (e) {
       setError(e.message);
       setStarting(null);

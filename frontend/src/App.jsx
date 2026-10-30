@@ -59,6 +59,7 @@ export default function App() {
             guest/free/paid tiering as Notes and PYQs. Starting an attempt still
             always requires an account, since a score has to belong to somebody. */}
         <Route path="/tests" element={<Shell><MockTestList /></Shell>} />
+        {/* :testId is a TEST id, not an attempt id — see MockTestList.start() */}
         <Route path="/tests/attempt/:testId" element={<ProtectedRoute><MockTestAttempt /></ProtectedRoute>} />
         <Route path="/tests/result/:attemptId" element={<ProtectedRoute><Shell><MockTestResult /></Shell></ProtectedRoute>} />
         <Route path="/results" element={<ProtectedRoute><Shell><MyResults /></Shell></ProtectedRoute>} />
