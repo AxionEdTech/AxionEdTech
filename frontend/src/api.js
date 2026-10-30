@@ -16,6 +16,25 @@ async function fetchProfile(userId) {
   return data;
 }
 
+async function saveMockTest(testId, test, questions) {
+  const { data, error } = await supabase.rpc("save_mock_test", {
+    p_test_id: testId,
+    p_test: {
+      exam: test.exam, subject: test.subject, title: test.title,
+      duration_minutes: Number(test.duration_minutes),
+      is_premium: !!test.is_premium, is_preview: !!test.is_preview,
+    },
+    p_questions: questions,
+  });
+  if (error) {
+    if (/save_mock_test/i.test(error.message) && /(could not find|does not exist|schema cache)/i.test(error.message)) {
+      throw new Error("The database needs a one-time update before tests can be saved: run supabase/migration_4_hints_and_results_cleanup.sql in the Supabase SQL Editor, then try again.");
+    }
+    throw new Error(error.message);
+  }
+  return data;
+}
+
 export const api = {
   async register({ name, email, password, subject }) {
     const { data, error } = await supabase.auth.signUp({
@@ -216,51 +235,46 @@ export const api = {
   },
 
   async getAttempt(attemptId) {
-    const { data: attempt, error: aErr } = await supabase.from("attempts").select("*").eq("id", attemptId).single();
+    const { data: attempt, error: aErr } = await supabase.from("attempts").select("*").eq("id", attemptId).maybeSingle();
     if (aErr) throw new Error(aErr.message);
+    if (!attempt) throw new Error("This result couldn't be found. It may have been removed together with its test.");
     const { data: test, error: tErr } = await supabase
-      .from("mock_tests").select("id, title, subject").eq("id", attempt.test_id).single();
+      .from("mock_tests").select("id, title, subject").eq("id", attempt.test_id).maybeSingle();
     if (tErr) throw new Error(tErr.message);
+    if (!test) throw new Error("This test is no longer available, so its result can't be shown.");
     const { data: questions, error: qErr } = await supabase
-      .from("mock_test_questions").select("*").eq("test_id", attempt.test_id).order("order_index");
+      .from("mock_test_questions").select("*").eq("test_id", attempt.test_id).order("order_index").order("id");
     if (qErr) throw new Error(qErr.message);
     return { attempt, test, questions };
   },
 
   async myAttempts() {
     const authUser = await currentAuthUser();
+    // First close out any unfinished attempt whose time has run out (graded if
+    // something was answered, discarded if not). Best-effort: older databases
+    // without migration 4 just skip this.
+    await supabase.rpc("finalize_expired_attempts");
     const { data, error } = await supabase
       .from("attempts")
       .select("id, test_id, started_at, submitted_at, score, max_score, correct_count, wrong_count, unattempted_count, mock_tests(title, subject)")
       .eq("user_id", authUser.id)
       .order("id", { ascending: false });
     if (error) throw new Error(error.message);
-    const attempts = data.map((a) => ({
-      ...a, title: a.mock_tests?.title, subject: a.mock_tests?.subject
-    }));
+    // An attempt whose test is gone (or no longer visible to this student) has
+    // nothing to show or open, so it is left out rather than listed blank.
+    const attempts = data
+      .filter((a) => a.mock_tests)
+      .map((a) => ({ ...a, title: a.mock_tests.title, subject: a.mock_tests.subject }));
     return { attempts };
   },
 
+  // Creating and editing go through ONE database function (save_mock_test), so a
+  // save is all-or-nothing: a bad question can no longer leave behind an empty
+  // test or wipe an existing test's questions, and unchanged questions keep
+  // their ids so students' old results still line up. Needs migration 4.
   async createTest({ subject, exam, title, duration_minutes, is_premium, is_preview, questions }) {
-    const { data: test, error: tErr } = await supabase
-      .from("mock_tests")
-      .insert({ subject, exam, title, duration_minutes, is_premium: !!is_premium, is_preview: !!is_preview })
-      .select().single();
-    if (tErr) throw new Error(tErr.message);
-
-    const rows = questions.map((q, i) => ({
-      test_id: test.id,
-      part: q.part || "A",
-      question: q.question,
-      option_a: q.option_a, option_b: q.option_b, option_c: q.option_c, option_d: q.option_d,
-      correct_option: q.correct_option,
-      marks: q.marks ?? 2,
-      negative_marks: q.negative_marks ?? 0.5,
-      order_index: i
-    }));
-    const { error: qErr } = await supabase.from("mock_test_questions").insert(rows);
-    if (qErr) throw new Error(qErr.message);
-    return { id: test.id };
+    const id = await saveMockTest(null, { subject, exam, title, duration_minutes, is_premium, is_preview }, questions);
+    return { id };
   },
 
   // Admins can read mock_test_questions (including correct_option) directly —
@@ -275,29 +289,7 @@ export const api = {
   },
 
   async updateTest(id, { subject, exam, title, duration_minutes, is_premium, is_preview, questions }) {
-    const { error: tErr } = await supabase
-      .from("mock_tests")
-      .update({ subject, exam, title, duration_minutes, is_premium: !!is_premium, is_preview: !!is_preview })
-      .eq("id", id);
-    if (tErr) throw new Error(tErr.message);
-
-    // Simplest correct approach: replace the whole question set rather than
-    // trying to diff individual questions against what's already there.
-    const { error: delErr } = await supabase.from("mock_test_questions").delete().eq("test_id", id);
-    if (delErr) throw new Error(delErr.message);
-
-    const rows = questions.map((q, i) => ({
-      test_id: id,
-      part: q.part || "A",
-      question: q.question,
-      option_a: q.option_a, option_b: q.option_b, option_c: q.option_c, option_d: q.option_d,
-      correct_option: q.correct_option,
-      marks: q.marks ?? 2,
-      negative_marks: q.negative_marks ?? 0.5,
-      order_index: i
-    }));
-    const { error: qErr } = await supabase.from("mock_test_questions").insert(rows);
-    if (qErr) throw new Error(qErr.message);
+    await saveMockTest(id, { subject, exam, title, duration_minutes, is_premium, is_preview }, questions);
     return { ok: true };
   },
 

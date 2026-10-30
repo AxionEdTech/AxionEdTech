@@ -24,7 +24,9 @@ export default function MockTestAttempt() {
   const submittedRef = useRef(false);
 
   useEffect(() => {
-    api.startTest(testId).then(({ attempt, test, questions }) => {
+    api.startTest(testId).then(({ attempt, test, questions: loaded }) => {
+      const questions = loaded || [];
+      if (questions.length === 0) throw new Error("This test has no questions yet.");
       setAttemptId(attempt.id);
       setTest(test);
       setQuestions(questions);

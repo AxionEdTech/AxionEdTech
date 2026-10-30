@@ -57,6 +57,12 @@ export default function MockTestResult() {
                 })}
               </ul>
               {!given && <p className="pyq-explanation">Not attempted.</p>}
+              {q.hint && (
+                <div className="pyq-explanation pyq-hint">
+                  <strong>Hint</strong>
+                  {renderRich(q.hint, `q${q.id}h`, { block: true })}
+                </div>
+              )}
             </div>
           );
         })}

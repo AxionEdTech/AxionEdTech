@@ -147,3 +147,35 @@ exam page will, with the correct option highlighted — check pictures and table
 ### Tests
 `cd frontend && npm test` runs a few quick checks of the link detection, table builder
 and mock-test parser (no extra installs needed).
+
+## October 2026 (2) — Hints, results clean-up, mock-test fixes
+**Run `supabase/migration_4_hints_and_results_cleanup.sql` once** in Supabase → SQL Editor
+(it is safe to run again), **before** deploying this build. Until it has been run, saving a
+mock test shows a message telling you so; everything else keeps working.
+
+### Hints in the results
+Each question can have a hint that students see **only in their results review**, after they
+submit — never during the test (the database doesn't send it while a test is running).
+- **JSON:** add `"hint": "..."` to a question. `explanation` / `solution` also work. Leave it out
+  (or `""`) for no hint. Maths works: `"hint": "$2026 \\equiv 2 \\pmod 4$ ..."`.
+- **Simple text:** a `Hint:` line, or on the answer line: `Answer: D | Hint: ...`.
+- Editing an existing test now shows each question's hint (empty ones as `"hint": ""`), so you
+  can add hints to tests you already created. Preview shows them too.
+
+### Results disappear with their test
+The migration deletes results that already outlived their test, and makes sure the link
+between a result and its test is "delete together" in your database. Results whose test is gone
+(or no longer visible to that student) are also never listed in My Results.
+
+### Other mock-test fixes
+- **"Start" on an old, abandoned attempt** used to resume it with the timer already at zero and
+  instantly submit it with a zero score. Now an attempt whose time ran out is closed (graded on
+  what was answered, or discarded if nothing was), and Start begins fresh.
+- **Saving a test is all-or-nothing.** Before, a failed save could leave an empty test behind or
+  wipe an existing test's questions. Empty tests are no longer shown to students.
+- **Editing a test keeps students' answers attached** to questions whose text you didn't change
+  (it used to give every question a new id, so old results showed "Not attempted").
+- **JSON is checked before saving**, with the question number in each message: it accepts `d` /
+  `(D)` for the answer, turns `-0.5` into `0.5` for negative marks, and rejects a missing option or
+  a part other than A/B/C instead of storing a broken question.
+- My Results shows readable dates; the exam page no longer hangs on a test with no questions.

@@ -542,3 +542,12 @@ button { font-family: inherit; }
   .exam-question-panel { padding: 22px 18px; }
   .content-preview { padding: 16px; }
 }
+
+/* Hint under a question in the results review */
+.pyq-explanation + .pyq-explanation { margin-top: 10px; }
+.pyq-hint { margin-top: 12px; }
+.pyq-hint > strong {
+  display: block; margin-bottom: 4px; font-size: 0.72rem; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--accent);
+}
+.pyq-hint .rich-block { color: var(--text); }

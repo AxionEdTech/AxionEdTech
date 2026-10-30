@@ -9,6 +9,7 @@ import ContentEditor from "../components/ContentEditor.jsx";
 import TableBuilder from "../components/TableBuilder.jsx";
 import { renderRich } from "../richContent.jsx";
 import { jsonEscape, tsvToMarkdownTable } from "../tableMarkdown.js";
+import { normalizeQuestions } from "../mockTestParser.js";
 
 import { normalizeImageSrc } from "../driveImage.js";
 
@@ -37,7 +38,8 @@ const SAMPLE_QUESTIONS_JSON = JSON.stringify([
     part: "A",
     question: "Sample question text goes here?",
     option_a: "Option A", option_b: "Option B", option_c: "Option C", option_d: "Option D",
-    correct_option: "B", marks: 2, negative_marks: 0.5
+    correct_option: "B", marks: 2, negative_marks: 0.5,
+    hint: "Optional. Shown to the student in the results review, after they submit."
   }
 ], null, 2);
 
@@ -699,10 +701,11 @@ function TestManager({ onDone }) {
 // as the exam and result pages, so a missing picture or a broken table shows
 // up here — before the test is saved.
 function QuestionsPreview({ questions, error }) {
-  if (error) return <p className="form-error">{error}</p>;
+  if (error && !questions.length) return <p className="form-error">{error}</p>;
   if (!questions.length) return <p className="field-hint" style={{ margin: 0 }}>No questions to preview yet.</p>;
   return (
     <div className="questions-preview">
+      {error && <p className="form-error" style={{ margin: 0 }}>{error}</p>}
       <p className="content-preview-label">Preview — {questions.length} question{questions.length === 1 ? "" : "s"}, correct option highlighted</p>
       {questions.map((q, i) => (
         <div key={i} className="pyq-card">
@@ -715,6 +718,12 @@ function QuestionsPreview({ questions, error }) {
               </li>
             ))}
           </ul>
+          {q.hint && (
+            <div className="pyq-explanation pyq-hint">
+              <strong>Hint</strong>
+              {renderRich(q.hint, `pq${i}h`, { block: true })}
+            </div>
+          )}
         </div>
       ))}
     </div>
@@ -729,8 +738,8 @@ function TestForm({ editing, onDone, onCancelEdit }) {
   const [useJsonMode, setUseJsonMode] = useState(false);
   const [simpleText, setSimpleText] = useState(() => editing ? questionsToText(editing.questions) : SAMPLE_QUESTIONS_TEXT);
   const [questionsJson, setQuestionsJson] = useState(() => editing
-    ? JSON.stringify(editing.questions.map(({ part, question, option_a, option_b, option_c, option_d, correct_option, marks, negative_marks }) =>
-        ({ part, question, option_a, option_b, option_c, option_d, correct_option, marks, negative_marks })), null, 2)
+    ? JSON.stringify(editing.questions.map(({ part, question, option_a, option_b, option_c, option_d, correct_option, marks, negative_marks, hint }) =>
+        ({ part, question, option_a, option_b, option_c, option_d, correct_option, marks, negative_marks, hint: hint || "" })), null, 2)
     : SAMPLE_QUESTIONS_JSON
   );
   const [busy, setBusy] = useState(false);
@@ -756,9 +765,8 @@ function TestForm({ editing, onDone, onCancelEdit }) {
     if (!showPreview) return { list: [], error: "" };
     if (!useJsonMode) return { list: parsed.questions, error: "" };
     try {
-      const value = JSON.parse(questionsJson);
-      if (!Array.isArray(value)) throw new Error("not an array");
-      return { list: value.filter((q) => q && typeof q === "object"), error: "" };
+      const { questions, errors } = normalizeQuestions(JSON.parse(questionsJson));
+      return { list: questions, error: errors.length ? `Not saved yet — ${errors.join(" ")}` : "" };
     } catch {
       return { list: [], error: "The JSON isn't valid yet, so there's nothing to preview." };
     }
@@ -790,12 +798,23 @@ function TestForm({ editing, onDone, onCancelEdit }) {
     e.preventDefault();
     let questions;
     if (useJsonMode) {
+      let parsedJson;
       try {
-        questions = JSON.parse(questionsJson);
+        parsedJson = JSON.parse(questionsJson);
       } catch {
         onDone("The questions field isn't valid JSON — check the format, or switch back to Simple text.");
         return;
       }
+      const checked = normalizeQuestions(parsedJson);
+      if (checked.errors.length) {
+        onDone(`Fix these before saving — ${checked.errors.join(" ")}`);
+        return;
+      }
+      if (checked.questions.length === 0) {
+        onDone("No questions found. The list is empty.");
+        return;
+      }
+      questions = checked.questions;
     } else {
       if (parsed.errors.length) {
         onDone(`Fix these before saving — ${parsed.errors.join(" ")}`);
@@ -825,7 +844,7 @@ function TestForm({ editing, onDone, onCancelEdit }) {
   return (
     <form className="form" onSubmit={submit}>
       <ExamDatalist />
-      {isEditing && <p className="form-note">Editing "{editing.title}" — saving replaces all its questions with what's below.</p>}
+      {isEditing && <p className="form-note">Editing "{editing.title}" — saving updates its questions to match what's below. Questions whose text you leave unchanged keep their students' results; reworded or removed ones don't.</p>}
       <div className="form-row">
         <label>Exam<input list="exam-suggestions" required value={form.exam} onChange={(e) => update("exam", e.target.value)} placeholder="CSIR NET, GATE, DU..." /></label>
         <label>Subject<input required value={form.subject} onChange={(e) => update("subject", e.target.value)} placeholder="Physics, Chemistry..." /></label>
@@ -872,6 +891,7 @@ function TestForm({ editing, onDone, onCancelEdit }) {
             One question per block, separated by a blank line — question text, then <code>A)</code>–<code>D)</code> on their own lines,
             then <code>Answer: B</code>. <code>Marks:</code>, <code>Negative:</code> and <code>Part:</code> are optional (default 2, 0.5, A).
             Paste as many as you like at once — this is much faster than typing them one at a time, and there's no JSON syntax to get right.
+            Add a hint with a <code>Hint:</code> line (or after the answer: <code>Answer: D | Hint: ...</code>); students see it in their results, never during the test.
             For a picture, paste its Google Drive share link on its own line, or inside the question or an option (<code>A) https://drive.google.com/…</code>).
             For a table, use "Insert table" — it goes between the question and the options, one row per line, each starting with <code>|</code>.
           </p>
@@ -887,7 +907,7 @@ function TestForm({ editing, onDone, onCancelEdit }) {
       ) : (
         <>
           <textarea id="test-questions" ref={jsonRef} required rows={16} className="mono" value={questionsJson} onChange={(e) => setQuestionsJson(e.target.value)} />
-          <p className="field-hint">JSON array — part, question, option_a..d, correct_option, marks, negative_marks. Math, images and tables work the same way inside these strings — $E=mc^2$, a pasted Google Drive share link, or a table written with <code>\n</code> between its rows ("Insert table" adds one with the escaping done for you).</p>
+          <p className="field-hint">JSON array — part, question, option_a..d, correct_option, marks, negative_marks, and optionally hint (shown in the results review only). Math, images and tables work the same way inside these strings — $E=mc^2$, a pasted Google Drive share link, or a table written with <code>\n</code> between its rows ("Insert table" adds one with the escaping done for you).</p>
         </>
       )}
 

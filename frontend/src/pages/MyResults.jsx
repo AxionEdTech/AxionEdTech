@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api.js";
 
+const when = (iso) => new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+
 export default function MyResults() {
   const [attempts, setAttempts] = useState(null);
   const [error, setError] = useState("");
@@ -23,7 +25,7 @@ export default function MyResults() {
             <div>
               <h3>{a.title}</h3>
               <p className="test-card-meta">
-                {a.subject} · {a.submitted_at ? `Submitted ${a.submitted_at}` : "In progress"}
+                {a.subject} · {a.submitted_at ? `Submitted ${when(a.submitted_at)}` : "In progress"}
                 {a.submitted_at && ` · Score ${a.score}/${a.max_score}`}
               </p>
             </div>
