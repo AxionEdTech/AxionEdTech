@@ -2,18 +2,21 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api.js";
 import { useAuth } from "../AuthContext.jsx";
+import ResendConfirmation from "../components/ResendConfirmation.jsx";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [needsConfirm, setNeedsConfirm] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
   async function onSubmit(e) {
     e.preventDefault();
     setError("");
+    setNeedsConfirm(false);
     setBusy(true);
     try {
       const { user } = await api.login({ email, password });
@@ -21,6 +24,7 @@ export default function Login() {
       navigate("/dashboard");
     } catch (err) {
       setError(err.message);
+      setNeedsConfirm(err.code === "email_not_confirmed");
     } finally {
       setBusy(false);
     }
@@ -43,6 +47,7 @@ export default function Login() {
             <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
           </label>
           {error && <div className="form-error">{error}</div>}
+          {needsConfirm && <ResendConfirmation email={email} startCooling={false} />}
           <button className="btn btn-primary" type="submit" disabled={busy}>
             {busy ? "Logging in…" : "Log in"}
           </button>

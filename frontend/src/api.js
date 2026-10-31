@@ -1,4 +1,5 @@
 import { supabase } from "./supabaseClient.js";
+import { friendlyAuthError, isAlreadyRegistered } from "./authMessages.js";
 
 async function currentAuthUser() {
   const { data, error } = await supabase.auth.getUser();
@@ -28,11 +29,18 @@ async function saveMockTest(testId, test, questions) {
   });
   if (error) {
     if (/save_mock_test/i.test(error.message) && /(could not find|does not exist|schema cache)/i.test(error.message)) {
-      throw new Error("The database needs a one-time update before tests can be saved: run supabase/migration_4_hints_and_results_cleanup.sql in the Supabase SQL Editor, then try again.");
+      throw new Error("The database needs a one-time update before tests can be saved: run supabase/migration_4_hints_and_results_cleanup.sql in the Supabase SQL Editor (in the same project this site uses) and wait for its result row to show true / true / true. If you already did, run:  notify pgrst, 'reload schema';  and try again.");
     }
     throw new Error(error.message);
   }
   return data;
+}
+
+function authError(error) {
+  const f = friendlyAuthError(error);
+  const e = new Error(f.message);
+  e.code = f.code;
+  return e;
 }
 
 export const api = {
@@ -40,7 +48,12 @@ export const api = {
     const { data, error } = await supabase.auth.signUp({
       email, password, options: { data: { name, subject } }
     });
-    if (error) throw new Error(error.message);
+    if (error) throw authError(error);
+    // An email that already has an account looks like a successful sign-up but
+    // no confirmation email is sent, so don't tell the person to wait for one.
+    if (isAlreadyRegistered(data.user)) {
+      return { user: null, needsEmailConfirm: false, alreadyRegistered: true };
+    }
     if (!data.session) {
       // Email confirmation is required by this Supabase project's settings.
       return { user: null, needsEmailConfirm: true };
@@ -51,9 +64,16 @@ export const api = {
 
   async login({ email, password }) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw new Error(error.message);
+    if (error) throw authError(error);
     const user = await fetchProfile(data.user.id);
     return { user };
+  },
+
+  // Sends the sign-up confirmation email again.
+  async resendConfirmation(email) {
+    const { error } = await supabase.auth.resend({ type: "signup", email });
+    if (error) throw authError(error);
+    return { ok: true };
   },
 
   async logout() {

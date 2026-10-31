@@ -35,3 +35,20 @@ n = normalizeQuestions([{ ...json[0], option_c: "" }, { ...json[0], correct_opti
 t("reports every problem with question numbers", n.errors.length === 4 && /Question 1: option_c is missing/.test(n.errors[0]) && /Question 2: correct_option must be A, B, C or D \(got "E"\)/.test(n.errors[1]) && /Question 3: expected an object/.test(n.errors[2]) && /Question 4: .*part must be A, B or C.*marks must be a number/.test(n.errors[3]), n.errors.join(" || "));
 t("numeric option 0 is fine (not 'missing')", normalizeQuestions([{ ...json[0], option_a: 0 }]).errors.length === 0);
 t("not-an-array is explained", normalizeQuestions({ a: 1 }).errors[0].includes("must be a list"));
+
+// The JSON an AI tool produced for a real question: it carries an extra "image_prompt"
+// field that the site doesn't use. Unknown fields must be ignored, not rejected.
+{
+  const real = [{
+    part: "A",
+    question: "What is the last (units) digit of the sum $7^{2026} + 3^{2026}$?",
+    image_prompt: null,
+    option_a: "0", option_b: "2", option_c: "6", option_d: "8",
+    correct_option: "D",
+    hint: "$2026 \\equiv 2 \\pmod 4$. Units digit of $7^2 + 3^2 = 9 + 9 = 18 \\rightarrow 8$.",
+    marks: 2, negative_marks: 0.5,
+  }];
+  const n = normalizeQuestions(real);
+  t("JSON with an extra image_prompt field is accepted and the field is ignored", n.errors.length === 0 && !("image_prompt" in n.questions[0]), JSON.stringify(n));
+  t("...and its hint comes through intact", n.questions[0].hint === real[0].hint, n.questions[0].hint);
+}

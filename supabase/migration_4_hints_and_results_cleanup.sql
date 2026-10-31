@@ -4,6 +4,15 @@
 -- Run this ONCE in Supabase → SQL Editor → New query → Run, BEFORE deploying
 -- the front-end build that goes with it. It is additive and safe to run again.
 --
+-- Supabase may pop up "Potential issue: query has destructive operations"
+-- (it contains DELETE / DROP CONSTRAINT, which remove results of tests that no
+-- longer exist and re-create the links). Click "Run this query" — cancelling
+-- the pop-up means nothing was installed.
+--
+-- When it has worked, the result panel at the bottom shows one row with
+-- save_mock_test_installed = true and hint_column_added = true. Make sure you
+-- are in the SAME Supabase project that your website is connected to.
+--
 -- What it does:
 --   1. Adds a "hint" to every mock-test question (shown in the results review).
 --   2. Makes sure a student's results are deleted together with their test,
@@ -253,7 +262,8 @@ grant execute on function public.finalize_expired_attempts() to authenticated;
 
 
 -- ---------- 5. Starting a test, and the test list ----------
-create or replace function public.start_test_attempt(p_test_id bigint)
+drop function if exists public.start_test_attempt(bigint);
+create function public.start_test_attempt(p_test_id bigint)
 returns jsonb language plpgsql security definer set search_path = public
 as $$
 declare
@@ -313,7 +323,8 @@ grant execute on function public.start_test_attempt(bigint) to authenticated;
 
 -- Same visibility rules as before, but a test with no questions is only listed
 -- for admins (so they can finish or delete it), never for students or visitors.
-create or replace function public.list_mock_tests()
+drop function if exists public.list_mock_tests();
+create function public.list_mock_tests()
 returns setof jsonb language sql security definer set search_path = public stable
 as $$
   select jsonb_build_object(
@@ -336,3 +347,18 @@ as $$
   order by t.created_at desc;
 $$;
 grant execute on function public.list_mock_tests() to authenticated, anon;
+
+
+-- ---------- 6. Make the change visible to the website, and confirm ----------
+-- Supabase's API keeps a list of database functions; this tells it to re-read
+-- the list now (otherwise a new function can stay "not found" for a while).
+notify pgrst, 'reload schema';
+
+select
+  exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+          where n.nspname = 'public' and p.proname = 'save_mock_test')           as save_mock_test_installed,
+  exists (select 1 from information_schema.columns
+          where table_schema = 'public' and table_name = 'mock_test_questions'
+            and column_name = 'hint')                                            as hint_column_added,
+  exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+          where n.nspname = 'public' and p.proname = 'finalize_expired_attempts') as expired_attempts_handled;

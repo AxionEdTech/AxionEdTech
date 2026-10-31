@@ -179,3 +179,31 @@ between a result and its test is "delete together" in your database. Results who
   `(D)` for the answer, turns `-0.5` into `0.5` for negative marks, and rejects a missing option or
   a part other than A/B/C instead of storing a broken question.
 - My Results shows readable dates; the exam page no longer hangs on a test with no questions.
+
+## October 2026 (3) — Registration email notice, safer migration 4
+### Registration
+People weren't told an email was coming. Now:
+- The sign-up form says so **before** they submit: a confirmation link will be emailed and must be
+  clicked before they can log in.
+- After submitting, a clear "Check your email" screen shows their address, three steps, a
+  Spam/Promotions reminder, a **Resend confirmation email** button (with a 60-second wait so it can't
+  be spammed) and "Wrong email address? Go back".
+- **Already-registered emails:** Supabase reports these as a successful sign-up but sends *no* email, so
+  people used to wait for a message that never came. They now get "This email is already registered —
+  Log in" instead.
+- **Log in with an unconfirmed email** explains why and offers the resend button; wrong-password and
+  email-rate-limit errors are in plain words.
+
+The email itself (subject, wording, logo) is set in Supabase → Authentication → Email Templates.
+Supabase's built-in sender has a very low hourly limit and often lands in Spam; before real students
+sign up, add your own SMTP provider under Authentication → SMTP Settings (Resend, Brevo, etc.). Also
+check Authentication → URL Configuration → Site URL is your live site, so the link opens it.
+
+### Migration 4 (re-run safe)
+`migration_4_hints_and_results_cleanup.sql` now finishes with a result row — **save_mock_test_installed,
+hint_column_added, expired_attempts_handled should all be true** — and refreshes Supabase's API so the new
+function is seen straight away. It also replaces the two older functions it touches (start_test_attempt,
+list_mock_tests) with drop-and-create, so an older version with a different shape can't abort it.
+Supabase may show a "destructive operations" pop-up (the script removes results of tests that no longer
+exist): click "Run this query". If saving a test still says "needs a one-time update", run
+`notify pgrst, 'reload schema';` and check you ran it in the same Supabase project the site uses.
