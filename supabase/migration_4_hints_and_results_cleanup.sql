@@ -23,6 +23,8 @@
 --   4. Handles unfinished attempts whose time has run out, so pressing Start on
 --      an old, abandoned attempt no longer auto-submits it with a zero score.
 --   5. Stops students seeing (or starting) a test that has no questions.
+--   6. Lets a student remove their own entries from My Results (the "Remove"
+--      button); until now the database refused every such delete.
 -- ============================================================================
 
 
@@ -66,6 +68,12 @@ begin
     );
   end loop;
 end $$;
+
+
+-- Students can remove their own entries from My Results.
+drop policy if exists "attempts_delete_own" on public.attempts;
+create policy "attempts_delete_own" on public.attempts
+  for delete using (user_id = auth.uid());
 
 
 -- ---------- 3. Save a test in one all-or-nothing step ----------

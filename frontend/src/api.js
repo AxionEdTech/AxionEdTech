@@ -29,7 +29,7 @@ async function saveMockTest(testId, test, questions) {
   });
   if (error) {
     if (/save_mock_test/i.test(error.message) && /(could not find|does not exist|schema cache)/i.test(error.message)) {
-      throw new Error("The database needs a one-time update before tests can be saved: run supabase/migration_4_hints_and_results_cleanup.sql in the Supabase SQL Editor (in the same project this site uses) and wait for its result row to show true / true / true. If you already did, run:  notify pgrst, 'reload schema';  and try again.");
+      throw new Error("The database needs a one-time update before tests can be saved. Use the \"Database update\" box at the top of Admin → Mock Tests: copy the SQL, run it in Supabase, then click \"Check again\".");
     }
     throw new Error(error.message);
   }
@@ -313,10 +313,35 @@ export const api = {
     return { ok: true };
   },
 
+  // Is the one-time database update (migration 4) installed? Calls the new save
+  // function with an empty question list, which it always refuses before
+  // writing anything — so this can never change data.
+  async databaseStatus() {
+    const { error } = await supabase.rpc("save_mock_test", { p_test_id: null, p_test: {}, p_questions: [] });
+    const msg = String(error?.message || "");
+    if (/save_mock_test/i.test(msg) && /(could not find|does not exist|schema cache)/i.test(msg)) return { state: "missing" };
+    if (/at least one question|only admins/i.test(msg)) return { state: "installed" };
+    return { state: "unknown", detail: msg };
+  },
+
+  // A student removing one of their own entries from My Results.
+  async deleteAttempt(id) {
+    const { data, error } = await supabase.from("attempts").delete().eq("id", id).select("id");
+    if (error) throw new Error(error.message);
+    if (!data || data.length === 0) {
+      throw new Error("This entry could not be removed. It needs the one-time database update (Admin → Mock Tests → Database update).");
+    }
+    return { ok: true };
+  },
+
   async deleteTest(id) {
     // Cascades to that test's questions and any student attempts automatically.
-    const { error } = await supabase.from("mock_tests").delete().eq("id", id);
+    // select() returns the rows that were really deleted: the API reports success
+    // even when a delete matched nothing (e.g. a permission rule), which would
+    // otherwise look like it worked.
+    const { data, error } = await supabase.from("mock_tests").delete().eq("id", id).select("id");
     if (error) throw new Error(error.message);
+    if (!data || data.length === 0) throw new Error("The test could not be deleted (it may already be gone, or your account is not allowed to delete it).");
     return { ok: true };
   },
 

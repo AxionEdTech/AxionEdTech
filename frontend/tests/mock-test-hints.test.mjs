@@ -52,3 +52,21 @@ t("not-an-array is explained", normalizeQuestions({ a: 1 }).errors[0].includes("
   t("JSON with an extra image_prompt field is accepted and the field is ignored", n.errors.length === 0 && !("image_prompt" in n.questions[0]), JSON.stringify(n));
   t("...and its hint comes through intact", n.questions[0].hint === real[0].hint, n.questions[0].hint);
 }
+
+// ---- pictures in JSON questions ----
+{
+  const base = { part: "A", question: "Identify the circuit.", option_a: "1", option_b: "2", option_c: "3", option_d: "4", correct_option: "A" };
+  const DRIVE = "https://drive.google.com/file/d/1AbC_dEf-123/view?usp=sharing";
+  const one = (extra) => normalizeQuestions([{ ...base, ...extra }]);
+
+  t("an AI image prompt (plain text) is ignored: not stored, not shown", (() => { const n = one({ image_prompt: "Clean 2D diagram of two trains on parallel tracks" }); return n.errors.length === 0 && n.questions[0].question === "Identify the circuit."; })());
+  t("image_prompt: null is ignored", one({ image_prompt: null }).questions[0].question === "Identify the circuit.");
+  t('"image" with a Drive link is added after the question text', one({ image: DRIVE }).questions[0].question === `Identify the circuit.\n\n${DRIVE}`);
+  t('"image_url" and "image_link" work too', one({ image_url: DRIVE }).questions[0].question.endsWith(DRIVE) && one({ image_link: DRIVE }).questions[0].question.endsWith(DRIVE));
+  t("a link placed in image_prompt is treated as the picture", one({ image_prompt: DRIVE }).questions[0].question.endsWith(DRIVE));
+  t("a direct .png link is accepted", one({ image: "https://example.com/figures/q1.png" }).errors.length === 0);
+  t("the link is not added twice if the question already contains it", one({ question: `See ${DRIVE}`, image: DRIVE }).questions[0].question === `See ${DRIVE}`);
+  t("empty / null image is ignored", one({ image: "" }).questions[0].question === "Identify the circuit." && one({ image: null }).questions[0].question === "Identify the circuit.");
+  t("something that is not an image link is reported, with the question number", (() => { const n = one({ image: "TBD" }); return n.errors.length === 1 && /Question 1: image must be a Google Drive share link/.test(n.errors[0]); })());
+  t("a Drive FOLDER link is rejected (it would not show a picture)", one({ image: "https://drive.google.com/drive/folders/1AbC?usp=sharing" }).errors.length === 1);
+}

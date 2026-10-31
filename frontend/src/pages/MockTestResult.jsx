@@ -56,7 +56,13 @@ export default function MockTestResult() {
                   );
                 })}
               </ul>
-              {!given && <p className="pyq-explanation">Not attempted.</p>}
+              <p className={`pyq-verdict ${given ? (isCorrect ? "is-correct" : "is-wrong") : "is-skipped"}`}>
+                {given
+                  ? isCorrect
+                    ? <>✓ Your answer: <strong>{given}</strong> — correct</>
+                    : <>✗ Your answer: <strong>{given}</strong> · Correct answer: <strong>{q.correct_option}</strong></>
+                  : <>Not attempted · Correct answer: <strong>{q.correct_option}</strong></>}
+              </p>
               {q.hint && (
                 <div className="pyq-explanation pyq-hint">
                   <strong>Hint</strong>

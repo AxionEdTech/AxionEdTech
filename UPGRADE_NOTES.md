@@ -207,3 +207,28 @@ list_mock_tests) with drop-and-create, so an older version with a different shap
 Supabase may show a "destructive operations" pop-up (the script removes results of tests that no longer
 exist): click "Run this query". If saving a test still says "needs a one-time update", run
 `notify pgrst, 'reload schema';` and check you ran it in the same Supabase project the site uses.
+
+## October 2026 (4) — Database update box, pictures in JSON, answers in results, Remove
+### "Database update" box (Admin → Mock Tests)
+The site now checks, from inside Admin → Mock Tests, whether migration 4 is installed in the Supabase
+project it is connected to. If not, a box explains what's missing and gives you: **Copy the SQL**, a link
+that opens *that project's* SQL Editor, and **Check again**. Once it shows "✔ Database update installed",
+saving tests, hints, results clean-up and the Remove button all work. (The SQL also still lives in
+`supabase/migration_4_hints_and_results_cleanup.sql`; the app carries a copy in `frontend/src/sql/`.
+Edit the `supabase/` one, then run `npm run sync-sql` — `npm test` fails if they differ.)
+
+### Pictures in JSON questions
+- `image_prompt` (a text description for an AI image tool) is **ignored** — never stored, never shown.
+- When you have the picture, put its Google Drive share link in **`"image": "https://drive.google.com/file/d/…/view"`**
+  (`image_url` / `image_link` also work). It is shown with the question, right after its text, in the exam,
+  the results and the preview. A link placed in `image_prompt` itself, or written inside `question`, works too.
+- Something that isn't an image link (e.g. `"image": "TBD"` or a Drive *folder*) is reported with the
+  question number instead of silently showing nothing. The Drive file must be shared "Anyone with the link".
+
+### Results
+- Under every question in a result: **Your answer / Correct answer** (or "Not attempted · Correct answer"),
+  the highlighted options, and the **Hint** if the question has one.
+- **My Results has a Remove button** on every entry (needs migration 4). It checks the entry was really
+  removed and says so if not, instead of pretending.
+- Deleting a mock test in Admin now confirms the test was really deleted (the database can report
+  "success" for a delete that matched nothing). Its questions and all students' results go with it.

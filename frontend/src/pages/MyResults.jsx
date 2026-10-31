@@ -7,6 +7,23 @@ const when = (iso) => new Date(iso).toLocaleString(undefined, { dateStyle: "medi
 export default function MyResults() {
   const [attempts, setAttempts] = useState(null);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [removing, setRemoving] = useState(null);
+
+  async function remove(a) {
+    const what = a.submitted_at ? "this result" : "this unfinished attempt";
+    if (!window.confirm(`Remove ${what} for "${a.title}" from your results? This can't be undone.`)) return;
+    setRemoving(a.id);
+    setNotice("");
+    try {
+      await api.deleteAttempt(a.id);
+      setAttempts((list) => list.filter((x) => x.id !== a.id));
+    } catch (err) {
+      setNotice(err.message);
+    } finally {
+      setRemoving(null);
+    }
+  }
 
   useEffect(() => {
     api.myAttempts().then((d) => setAttempts(d.attempts)).catch((e) => setError(e.message));
@@ -18,6 +35,7 @@ export default function MyResults() {
   return (
     <div className="page">
       <h1>My Results</h1>
+      {notice && <div className="form-error">{notice}</div>}
       {attempts.length === 0 && <p className="empty-state">You haven't attempted any mock tests yet.</p>}
       <div className="test-list">
         {attempts.map((a) => (
@@ -29,11 +47,16 @@ export default function MyResults() {
                 {a.submitted_at && ` · Score ${a.score}/${a.max_score}`}
               </p>
             </div>
-            {a.submitted_at ? (
-              <Link className="btn btn-ghost" to={`/tests/result/${a.id}`}>View result</Link>
-            ) : (
-              <Link className="btn btn-primary" to={`/tests/attempt/${a.test_id}`}>Resume</Link>
-            )}
+            <div className="test-card-actions">
+              {a.submitted_at ? (
+                <Link className="btn btn-ghost" to={`/tests/result/${a.id}`}>View result</Link>
+              ) : (
+                <Link className="btn btn-primary" to={`/tests/attempt/${a.test_id}`}>Resume</Link>
+              )}
+              <button type="button" className="btn btn-ghost" disabled={removing === a.id} onClick={() => remove(a)}>
+                {removing === a.id ? "Removing…" : "Remove"}
+              </button>
+            </div>
           </div>
         ))}
       </div>

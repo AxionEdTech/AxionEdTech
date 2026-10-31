@@ -29,6 +29,7 @@
 // (the "Insert table" button or pasting cells from a spreadsheet does this).
 
 import { separateTables } from "./richText.js";
+import { isImageLikeUrl } from "./driveImage.js";
 
 const OPTION_RE = /^([A-Da-d])[).:\-]\s*(.*)$/;
 const ANSWER_RE = /^(?:ans(?:wer)?|correct(?:\s*answer)?)\s*[:.\-]?\s*\(?\s*([A-Da-d])\s*\)?(?![A-Za-z0-9])/i;
@@ -130,6 +131,10 @@ export function parseQuestionsText(raw) {
 //  - correct_option: "d", "(D)", "Option D" -> "D"       part: "a", "Part B" -> "A"/"B"
 //  - negative_marks: -0.5 -> 0.5 (it is always subtracted)
 //  - hint: also accepted as "explanation" or "solution"
+//  - pictures: a Google Drive share link (or direct image link) in "image" /
+//    "image_url" / "image_link" is shown with the question, right after its text.
+//    "image_prompt" (a description for an AI image tool) is never stored or shown —
+//    unless it holds a link, which is then treated as the picture.
 const text = (v) => (v === null || v === undefined ? "" : String(v)).trim();
 const asLetter = (v, allowed) => {
   const m = text(v).match(/^\(?\s*(?:option\s*|part\s*)?([A-Za-z])\s*\)?\.?$/i);
@@ -165,9 +170,19 @@ export function normalizeQuestions(list) {
     if (!Number.isFinite(marks)) problems.push(`marks must be a number (got "${text(raw.marks)}")`);
     const negative = text(raw.negative_marks) === "" ? 0.5 : Math.abs(Number(raw.negative_marks));
     if (!Number.isFinite(negative)) problems.push(`negative_marks must be a number (got "${text(raw.negative_marks)}")`);
+    // A picture link is simply added to the end of the question text; the
+    // renderer turns a pasted Drive/image link into the picture, in place.
+    let withImage = question;
+    const promptValue = text(raw.image_prompt);
+    const explicit = text(raw.image ?? raw.image_url ?? raw.image_link);
+    const link = explicit || (/^https?:\/\/\S+$/i.test(promptValue) ? promptValue : "");
+    if (link) {
+      if (!isImageLikeUrl(link)) problems.push(`image must be a Google Drive share link (or a direct link to an image), got "${link.slice(0, 60)}"`);
+      else if (!question.includes(link)) withImage = `${question}\n\n${link}`;
+    }
     if (problems.length) { errors.push(`Question ${num}: ${problems.join("; ")}.`); return; }
     questions.push({
-      part, question,
+      part, question: withImage,
       option_a: opts.a, option_b: opts.b, option_c: opts.c, option_d: opts.d,
       correct_option: correct, marks, negative_marks: negative,
       hint: text(raw.hint ?? raw.explanation ?? raw.solution) || null,

@@ -559,3 +559,21 @@ button { font-family: inherit; }
 .resend-confirm { display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
 .resend-ok { margin: 0; padding: 10px 14px; border-radius: 6px; background: var(--accent-soft); color: var(--accent); font-size: 0.86rem; }
 .auth-switch .btn-link { display: inline; padding: 0; font-size: inherit; }
+
+/* Admin: database update box */
+.db-status { margin: 0 0 14px; font-size: 0.85rem; color: var(--muted); }
+.db-status.ok { color: #0B6B54; }
+.db-update { margin-bottom: 22px; padding: 16px 18px; border: 1px solid var(--warn); border-radius: 8px; background: var(--warn-soft); }
+.db-update h3 { margin: 0 0 6px; font-size: 1.02rem; }
+.db-update p { margin: 0 0 10px; font-size: 0.9rem; color: var(--ink-soft); }
+.db-update ol { margin: 0 0 12px; padding-left: 20px; font-size: 0.9rem; color: var(--ink-soft); line-height: 1.9; }
+.db-copied { font-size: 0.82rem; color: #0B6B54; margin-left: 6px; }
+.db-update summary { cursor: pointer; font-size: 0.85rem; color: var(--accent); }
+.db-sql { width: 100%; margin-top: 8px; font-family: var(--font-mono); font-size: 0.74rem; }
+
+/* Result review: your answer vs the correct one */
+.pyq-verdict { margin: 0 0 6px; font-size: 0.86rem; font-weight: 600; }
+.pyq-verdict.is-correct { color: #0B6B54; }
+.pyq-verdict.is-wrong { color: var(--danger); }
+.pyq-verdict.is-skipped { color: var(--muted); }
+.test-card-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: flex-end; }

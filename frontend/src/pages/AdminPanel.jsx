@@ -6,6 +6,7 @@ import { insertAtCursor } from "../textInsert.js";
 import { parseQuestionsText, questionsToText, SAMPLE_QUESTIONS_TEXT } from "../mockTestParser.js";
 import GoogleDriveImageButton from "../components/GoogleDriveImageButton.jsx";
 import ContentEditor from "../components/ContentEditor.jsx";
+import DatabaseUpdatePanel from "../components/DatabaseUpdatePanel.jsx";
 import TableBuilder from "../components/TableBuilder.jsx";
 import { renderRich } from "../richContent.jsx";
 import { jsonEscape, tsvToMarkdownTable } from "../tableMarkdown.js";
@@ -668,6 +669,7 @@ function TestManager({ onDone }) {
 
   return (
     <div>
+      <DatabaseUpdatePanel />
       <TestForm
         key={editing?.id ?? "new"}
         editing={editing}
