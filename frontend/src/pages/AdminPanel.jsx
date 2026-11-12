@@ -1,12 +1,20 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api.js";
-import { EXAMS, SUBJECTS, UNITS, SESSIONS } from "../taxonomy.js";
+import { EXAMS, SUBJECTS, UNITS, SESSIONS, TEST_KINDS, UPDATE_CATEGORIES } from "../taxonomy.js";
+import { planName } from "../plans.js";
+import { EXAM_PATTERNS, applyPattern, patternSummary } from "../examPatterns.js";
+import { clearAnnouncementsCache } from "../useAnnouncements.js";
+import {
+  PlanSelect, PlansManager, SubscriptionsManager, PapersManager, ExamInfoManager,
+  QuestionBankManager, SettingsManager, MessagesManager, DownloadsManager, NotesPlanBulk,
+} from "../components/admin/AdminExtras.jsx";
 import { groupNotes, assignPositions } from "../noteOrdering.js";
 import { insertAtCursor } from "../textInsert.js";
 import { parseQuestionsText, questionsToText, SAMPLE_QUESTIONS_TEXT } from "../mockTestParser.js";
 import GoogleDriveImageButton from "../components/GoogleDriveImageButton.jsx";
 import ContentEditor from "../components/ContentEditor.jsx";
 import DatabaseUpdatePanel from "../components/DatabaseUpdatePanel.jsx";
+import PlansUpdatePanel from "../components/PlansUpdatePanel.jsx";
 import TableBuilder from "../components/TableBuilder.jsx";
 import { renderRich } from "../richContent.jsx";
 import { jsonEscape, tsvToMarkdownTable } from "../tableMarkdown.js";
@@ -14,7 +22,21 @@ import { normalizeQuestions } from "../mockTestParser.js";
 
 import { normalizeImageSrc } from "../driveImage.js";
 
-const TABS = ["Notices", "Author", "Notes", "PYQs", "Mock Tests", "Manage Students"];
+const TABS = [
+  { id: "notices", label: "Updates" },
+  { id: "notes", label: "Notes" },
+  { id: "tests", label: "Mock Tests" },
+  { id: "qbank", label: "Question Bank" },
+  { id: "papers", label: "Previous Year Papers" },
+  { id: "downloads", label: "Downloads" },
+  { id: "examinfo", label: "Exam Info" },
+  { id: "subs", label: "Subscriptions" },
+  { id: "plans", label: "Plans & Prices" },
+  { id: "settings", label: "Settings & Social" },
+  { id: "messages", label: "Messages" },
+  { id: "author", label: "Author" },
+  { id: "pyqs", label: "PYQs (text)" },
+];
 
 // Exam suggestions everywhere now come straight from the shared taxonomy so
 // this list can never drift out of sync with what the public pages expect.
@@ -47,35 +69,41 @@ const SAMPLE_QUESTIONS_JSON = JSON.stringify([
 export default function AdminPanel() {
   const [tab, setTab] = useState(0);
   const [status, setStatus] = useState("");
+  const current = TABS[tab].id;
 
   return (
-    <div className="page">
+    <div className="page page-wide">
       <h1>Admin</h1>
-      <p className="page-sub">Add, edit, or remove content that students see immediately after login.</p>
+
+      <PlansUpdatePanel />
 
       <div className="admin-tabs">
         {TABS.map((t, i) => (
-          <button key={t} className={`admin-tab ${tab === i ? "active" : ""}`} onClick={() => { setTab(i); setStatus(""); }}>
-            {t}
+          <button key={t.id} className={`admin-tab ${tab === i ? "active" : ""}`} onClick={() => { setTab(i); setStatus(""); }}>
+            {t.label}
           </button>
         ))}
       </div>
 
       {status && <div className="form-note">{status}</div>}
 
-      {tab === 0 && <AnnouncementsManager onDone={setStatus} />}
-      {tab === 1 && <AuthorsManager onDone={setStatus} />}
-      {tab === 2 && <NotesManager onDone={setStatus} />}
-      {tab === 3 && <PYQManager onDone={setStatus} />}
-      {tab === 4 && <TestManager onDone={setStatus} />}
-      {tab === 5 && <StudentsPanel onDone={setStatus} />}
+      {current === "notices" && <AnnouncementsManager onDone={setStatus} />}
+      {current === "notes" && (<><NotesPlanBulk onDone={setStatus} /><NotesManager onDone={setStatus} /></>)}
+      {current === "tests" && <TestManager onDone={setStatus} />}
+      {current === "qbank" && <QuestionBankManager onDone={setStatus} />}
+      {current === "papers" && <PapersManager onDone={setStatus} />}
+      {current === "downloads" && <DownloadsManager onDone={setStatus} />}
+      {current === "examinfo" && <ExamInfoManager onDone={setStatus} />}
+      {current === "subs" && <SubscriptionsManager onDone={setStatus} />}
+      {current === "plans" && <PlansManager onDone={setStatus} />}
+      {current === "settings" && <SettingsManager onDone={setStatus} />}
+      {current === "messages" && <MessagesManager onDone={setStatus} />}
+      {current === "author" && <AuthorsManager onDone={setStatus} />}
+      {current === "pyqs" && <PYQManager onDone={setStatus} />}
     </div>
   );
 }
 
-// ============================================================================
-// Notices (notice board)
-// ============================================================================
 function AnnouncementsManager({ onDone }) {
   const [items, setItems] = useState(null);
   const [editing, setEditing] = useState(null);
@@ -121,8 +149,8 @@ function AnnouncementsManager({ onDone }) {
 
 function AnnouncementForm({ editing, onDone, onCancelEdit }) {
   const [form, setForm] = useState(() => editing
-    ? { title: editing.title, body: editing.body, is_pinned: editing.is_pinned, is_active: editing.is_active }
-    : { title: "", body: "", is_pinned: false, is_active: true }
+    ? { title: editing.title, body: editing.body, is_pinned: editing.is_pinned, is_active: editing.is_active, category: editing.category || "general", event_date: editing.event_date || "", link_url: editing.link_url || "" }
+    : { title: "", body: "", is_pinned: false, is_active: true, category: "general", event_date: "", link_url: "" }
   );
   const [busy, setBusy] = useState(false);
   const update = (k, v) => setForm((f) => ({ ...f, [k]: v }));
@@ -133,12 +161,14 @@ function AnnouncementForm({ editing, onDone, onCancelEdit }) {
     setBusy(true);
     try {
       if (isEditing) {
-        await api.updateAnnouncement(editing.id, form);
-        onDone("Notice updated.");
+        await api.updateAnnouncement(editing.id, { ...form, event_date: form.event_date || null, link_url: form.link_url || null });
+        clearAnnouncementsCache();
+        onDone("Update saved.");
       } else {
-        await api.createAnnouncement(form);
-        onDone("Notice posted.");
-        setForm({ title: "", body: "", is_pinned: false, is_active: true });
+        await api.createAnnouncement({ ...form, event_date: form.event_date || null, link_url: form.link_url || null });
+        clearAnnouncementsCache();
+        onDone("Update posted.");
+        setForm({ title: "", body: "", is_pinned: false, is_active: true, category: "general", event_date: "", link_url: "" });
       }
     } catch (err) {
       onDone(err.message);
@@ -150,7 +180,18 @@ function AnnouncementForm({ editing, onDone, onCancelEdit }) {
       {isEditing && <p className="form-note">Editing "{editing.title}"</p>}
       <label>Title<input required value={form.title} onChange={(e) => update("title", e.target.value)} placeholder="e.g. New CSIR NET December 2026 papers added" /></label>
       <label>Message<textarea required rows={4} value={form.body} onChange={(e) => update("body", e.target.value)} placeholder="What's changed, and what students should do next." /></label>
-      <p className="field-hint">Shows on the home page and student dashboard, pinned notices first, then newest. Basic formatting works: **bold**, *italic*, links.</p>
+      <div className="form-row">
+        <label>Type
+          <select value={form.category} onChange={(e) => update("category", e.target.value)}>
+            {UPDATE_CATEGORIES.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+          </select>
+        </label>
+        <label>Date it refers to (optional)
+          <input type="date" value={form.event_date} onChange={(e) => update("event_date", e.target.value)} />
+        </label>
+      </div>
+      <label>Link (optional)<input type="url" value={form.link_url} onChange={(e) => update("link_url", e.target.value)} placeholder="https://… official notification" /></label>
+      <p className="field-hint">A dated update (a deadline, an exam date) also appears under "Upcoming dates" on the home page until that day passes. Pinned updates show first. Basic formatting works: **bold**, *italic*, links.</p>
       <div className="form-row">
         <label style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <input type="checkbox" checked={form.is_pinned} onChange={(e) => update("is_pinned", e.target.checked)} style={{ width: "auto" }} />
@@ -162,7 +203,7 @@ function AnnouncementForm({ editing, onDone, onCancelEdit }) {
         </label>
       </div>
       <div className="form-row">
-        <button className="btn btn-primary" disabled={busy}>{busy ? "Saving…" : isEditing ? "Update notice" : "Post notice"}</button>
+        <button className="btn btn-primary" disabled={busy}>{busy ? "Saving…" : isEditing ? "Update" : "Post update"}</button>
         {isEditing && <button type="button" className="btn btn-ghost" onClick={onCancelEdit}>Cancel</button>}
       </div>
     </form>
@@ -387,7 +428,7 @@ function NotesManager({ onDone }) {
               </div>
               {g.items.map((n, ii) => (
                 <div key={n.id} className="reorder-item">
-                  <span>{n.title}{n.is_premium ? " · Paid" : ""}</span>
+                  <span>{n.title}{n.min_plan && n.min_plan !== "free" ? ` · ${planName(n.min_plan)}` : ""}</span>
                   <div className="reorder-controls">
                     <button className="btn btn-ghost btn-sm" disabled={busyOrder || ii === 0} onClick={() => moveItem(gi, ii, -1)}>↑</button>
                     <button className="btn btn-ghost btn-sm" disabled={busyOrder || ii === g.items.length - 1} onClick={() => moveItem(gi, ii, 1)}>↓</button>
@@ -406,7 +447,7 @@ function NotesManager({ onDone }) {
               <div>
                 <strong>{n.title}</strong>
                 <span className="admin-list-meta">
-                  {n.exam} · {n.subject} — {n.unit}{n.is_premium ? " · Paid" : ""}{n.is_preview ? " · Preview" : ""}
+                  {n.exam} · {n.subject} — {n.unit}{n.min_plan && n.min_plan !== "free" ? ` · ${planName(n.min_plan)}` : ""}{n.is_preview ? " · Preview" : ""}
                 </span>
               </div>
               <div className="admin-list-actions">
@@ -423,8 +464,8 @@ function NotesManager({ onDone }) {
 
 function NoteForm({ editing, onDone, onCancelEdit }) {
   const [form, setForm] = useState(() => editing
-    ? { exam: editing.exam, subject: editing.subject, unit: editing.unit, title: editing.title, content: editing.content, is_premium: editing.is_premium, is_preview: !!editing.is_preview }
-    : { exam: "", subject: "", unit: "", title: "", content: "", is_premium: false, is_preview: false }
+    ? { exam: editing.exam, subject: editing.subject, unit: editing.unit, title: editing.title, content: editing.content, min_plan: editing.min_plan || (editing.is_premium ? "notes_mock" : "free"), is_preview: !!editing.is_preview }
+    : { exam: "", subject: "", unit: "", title: "", content: "", min_plan: "free", is_preview: false }
   );
   const [busy, setBusy] = useState(false);
   const update = (k, v) => setForm((f) => ({ ...f, [k]: v }));
@@ -438,9 +479,9 @@ function NoteForm({ editing, onDone, onCancelEdit }) {
     setForm((f) => ({ ...f, subject, unit: firstUnit }));
   }
 
-  function updatePremium(isPremium) {
-    // A note can't be both "Paid plan only" and a free guest preview.
-    setForm((f) => ({ ...f, is_premium: isPremium, is_preview: isPremium ? false : f.is_preview }));
+  function updatePlan(min_plan) {
+    // Only a free note can be a guest preview.
+    setForm((f) => ({ ...f, min_plan, is_preview: min_plan === "free" ? f.is_preview : false }));
   }
 
   // Existing notes saved before this taxonomy existed (or with a typo) may
@@ -464,7 +505,7 @@ function NoteForm({ editing, onDone, onCancelEdit }) {
       } else {
         await api.createNote(form);
         onDone("Note added.");
-        setForm({ exam: form.exam, subject: form.subject, unit: form.unit, title: "", content: "", is_premium: form.is_premium, is_preview: form.is_preview });
+        setForm({ exam: form.exam, subject: form.subject, unit: form.unit, title: "", content: "", min_plan: form.min_plan, is_preview: form.is_preview });
       }
     } catch (err) {
       onDone(err.message);
@@ -495,13 +536,10 @@ function NoteForm({ editing, onDone, onCancelEdit }) {
         <p className="field-hint">Formatting works here: ## heading, **bold**, * bullet list, $E=mc^2$ inline math, $$...$$ block math. For a picture, paste its Google Drive share link right where you want it to appear (or use "Add image from Drive"); the file must be shared as "Anyone with the link can view". For a table, use "Insert table", or copy cells from Excel / Google Sheets and paste them into the box. "Preview" shows the result.</p>
       </ContentEditor>
       <div className="form-row">
+        <PlanSelect value={form.min_plan} onChange={updatePlan} />
         <label style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <input type="checkbox" checked={form.is_preview} disabled={form.is_premium} onChange={(e) => update("is_preview", e.target.checked)} style={{ width: "auto" }} />
+          <input type="checkbox" checked={form.is_preview} disabled={form.min_plan !== "free"} onChange={(e) => update("is_preview", e.target.checked)} style={{ width: "auto" }} />
           Show to visitors without logging in (free preview)
-        </label>
-        <label style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <input type="checkbox" checked={form.is_premium} onChange={(e) => updatePremium(e.target.checked)} style={{ width: "auto" }} />
-          Paid plan only
         </label>
       </div>
       <div className="form-row">
@@ -685,7 +723,7 @@ function TestManager({ onDone }) {
             <div>
               <strong>{t.title}</strong>
               <span className="admin-list-meta">
-                {t.exam} · {t.subject} · {t.question_count} questions{t.is_premium ? " · Paid" : ""}{t.is_preview ? " · Preview" : ""}
+                {t.exam} · {t.subject} · {t.question_count} questions · {TEST_KINDS.find((k) => k.id === (t.kind || "full"))?.label}{t.min_plan && t.min_plan !== "free" ? ` · ${planName(t.min_plan)}` : ""}{t.is_preview ? " · Preview" : ""}
               </span>
             </div>
             <div className="admin-list-actions">
@@ -734,10 +772,11 @@ function QuestionsPreview({ questions, error }) {
 
 function TestForm({ editing, onDone, onCancelEdit }) {
   const [form, setForm] = useState(() => editing
-    ? { exam: editing.exam, subject: editing.subject, title: editing.title, duration_minutes: editing.duration_minutes, is_premium: editing.is_premium, is_preview: !!editing.is_preview }
-    : { exam: "", subject: "", title: "", duration_minutes: 180, is_premium: false, is_preview: false }
+    ? { exam: editing.exam, subject: editing.subject, title: editing.title, duration_minutes: editing.duration_minutes, min_plan: editing.min_plan || (editing.is_premium ? "mock" : "free"), kind: editing.kind || "full", is_preview: !!editing.is_preview }
+    : { exam: "", subject: "", title: "", duration_minutes: 180, min_plan: "mock", kind: "full", is_preview: false }
   );
   const [useJsonMode, setUseJsonMode] = useState(false);
+  const [patternId, setPatternId] = useState("custom");
   const [simpleText, setSimpleText] = useState(() => editing ? questionsToText(editing.questions) : SAMPLE_QUESTIONS_TEXT);
   const [questionsJson, setQuestionsJson] = useState(() => editing
     ? JSON.stringify(editing.questions.map(({ part, question, option_a, option_b, option_c, option_d, correct_option, marks, negative_marks, hint }) =>
@@ -752,14 +791,33 @@ function TestForm({ editing, onDone, onCancelEdit }) {
   const update = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const isEditing = !!editing;
 
-  function updatePremium(isPremium) {
-    setForm((f) => ({ ...f, is_premium: isPremium, is_preview: isPremium ? false : f.is_preview }));
+  function updatePlan(min_plan) {
+    setForm((f) => ({ ...f, min_plan, is_preview: min_plan === "free" ? f.is_preview : false }));
+  }
+
+  // A marking pattern fills each question's marks and negative marks from its
+  // Part when the test is saved, so a full paper is scored like the real one.
+  function updatePattern(id) {
+    setPatternId(id);
+    if (EXAM_PATTERNS[id]) setForm((f) => ({ ...f, duration_minutes: EXAM_PATTERNS[id].duration }));
   }
 
   // Live feedback as the admin types/pastes, instead of finding out something
   // was wrong only after hitting Save — this is what actually makes bulk
   // entry fast: fix a typo, see the count update immediately.
   const parsed = useMemo(() => (useJsonMode ? null : parseQuestionsText(simpleText)), [simpleText, useJsonMode]);
+
+  // How many questions each Part has so far, against the real paper.
+  const patternRows = useMemo(() => {
+    const pattern = EXAM_PATTERNS[patternId];
+    if (!pattern) return [];
+    let list = [];
+    if (!useJsonMode) list = parsed ? parsed.questions : [];
+    else {
+      try { const v = JSON.parse(questionsJson); list = Array.isArray(v) ? v : []; } catch { list = []; }
+    }
+    return patternSummary(list, pattern);
+  }, [patternId, useJsonMode, parsed, questionsJson]);
 
   // What the Preview shows: the parsed Simple-text questions, or the JSON if
   // it parses yet (it's often half-typed, so a failure just says so).
@@ -828,6 +886,7 @@ function TestForm({ editing, onDone, onCancelEdit }) {
       }
       questions = parsed.questions;
     }
+    if (EXAM_PATTERNS[patternId]) questions = applyPattern(questions, EXAM_PATTERNS[patternId]);
 
     setBusy(true);
     try {
@@ -856,15 +915,31 @@ function TestForm({ editing, onDone, onCancelEdit }) {
         <label>Title<input required value={form.title} onChange={(e) => update("title", e.target.value)} /></label>
       </div>
       <div className="form-row">
+        <label>Kind of test
+          <select value={form.kind} onChange={(e) => update("kind", e.target.value)}>
+            {TEST_KINDS.map((k) => <option key={k.id} value={k.id}>{k.label}</option>)}
+          </select>
+        </label>
+        <PlanSelect value={form.min_plan} onChange={updatePlan} />
+      </div>
+      <div className="form-row">
+        <label>Marking pattern
+          <select value={patternId} onChange={(e) => updatePattern(e.target.value)}>
+            <option value="custom">Custom — use the Marks / Negative lines below</option>
+            {Object.values(EXAM_PATTERNS).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+        </label>
         <label style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <input type="checkbox" checked={form.is_preview} disabled={form.is_premium} onChange={(e) => update("is_preview", e.target.checked)} style={{ width: "auto" }} />
+          <input type="checkbox" checked={form.is_preview} disabled={form.min_plan !== "free"} onChange={(e) => update("is_preview", e.target.checked)} style={{ width: "auto" }} />
           Show to visitors without logging in (catalog only — starting a test always needs an account)
         </label>
-        <label style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <input type="checkbox" checked={form.is_premium} onChange={(e) => updatePremium(e.target.checked)} style={{ width: "auto" }} />
-          Paid plan only
-        </label>
       </div>
+      {patternRows.length > 0 && (
+        <ul className="pattern-summary">
+          {patternRows.map((r) => <li key={r.part} className={r.complete ? "ok" : ""}>{r.message}</li>)}
+          <li className="hint">Marks and negative marks for each question are set from its Part when you save (A: +2 / −0.5, B: +3.5 / −0.875, C: +5 / −1.25). Check them against the current NTA notification.</li>
+        </ul>
+      )}
 
       <div className="field-label-row">
         <label htmlFor="test-questions">Questions</label>
@@ -920,54 +995,5 @@ function TestForm({ editing, onDone, onCancelEdit }) {
         {isEditing && <button type="button" className="btn btn-ghost" onClick={onCancelEdit}>Cancel</button>}
       </div>
     </form>
-  );
-}
-
-// ============================================================================
-// Students
-// ============================================================================
-function StudentsPanel({ onDone }) {
-  const [students, setStudents] = useState(null);
-  const [busyId, setBusyId] = useState(null);
-
-  useEffect(() => {
-    api.listStudents().then((d) => setStudents(d.students)).catch((e) => onDone(e.message));
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  async function changePlan(id, plan) {
-    setBusyId(id);
-    try {
-      await api.setPlan(id, plan);
-      setStudents((list) => list.map((s) => (s.id === id ? { ...s, plan } : s)));
-    } catch (err) {
-      onDone(err.message);
-    } finally { setBusyId(null); }
-  }
-
-  if (!students) return <p className="page-loading">Loading students…</p>;
-
-  return (
-    <div>
-      <p className="page-sub">Flip a student to "paid" once you've confirmed payment (manually, until a payment gateway is wired up).</p>
-      <div className="test-list">
-        {students.map((s) => (
-          <div key={s.id} className="test-card">
-            <div>
-              <h3>{s.name} {s.role === "admin" && <span style={{ color: "var(--accent)", fontSize: "0.75rem" }}>(admin)</span>}</h3>
-              <p className="test-card-meta">{s.email}{s.subject ? ` · ${s.subject}` : ""} · currently <strong>{s.plan}</strong></p>
-            </div>
-            {s.plan === "free" ? (
-              <button className="btn btn-primary btn-sm" disabled={busyId === s.id} onClick={() => changePlan(s.id, "paid")}>
-                Mark as paid
-              </button>
-            ) : (
-              <button className="btn btn-ghost btn-sm" disabled={busyId === s.id} onClick={() => changePlan(s.id, "free")}>
-                Revert to free
-              </button>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
   );
 }

@@ -232,3 +232,56 @@ Edit the `supabase/` one, then run `npm run sync-sql` — `npm test` fails if th
   removed and says so if not, instead of pretending.
 - Deleting a mock test in Admin now confirms the test was really deleted (the database can report
   "success" for a delete that matched nothing). Its questions and all students' results go with it.
+
+
+---
+
+## November 2026 — site redesign (plans, papers, exam hub, question bank, downloads)
+
+### Install order (important)
+1. **Migration 4** (`supabase/migration_4_hints_and_results_cleanup.sql`) — if Admin → Mock Tests still shows
+   "One-time database update needed", install that first, exactly as before.
+2. **Migration 5** (`supabase/migration_5_plans_papers_exam_hub_question_bank.sql`) — open **Admin**: a red box
+   "Database update 5 needed" appears at the top with a *Copy the SQL* button and a link to the right Supabase SQL
+   editor. Run it, press *Check again*; the result row must show `true, true, true`. It is safe to run twice.
+   Run both **before** (or right after) the new site goes live: the new pages read the new tables.
+
+Migration 5 **closes a security hole**: before it, any signed-in student could change their own `plan` from the
+browser console. Plan, expiry and role can now only be changed by an admin. Existing `paid` students become
+`complete` with no expiry, so nobody loses access. It also re-creates `save_mock_test`, `list_mock_tests` and
+`start_test_attempt` from migration 4 with their behaviour kept (hints, expired attempts, "no questions yet") plus the
+plan check — which is why migration 4 must come first.
+
+### Then, in the app (Admin)
+1. **Plans & Prices** — rename plans, set prices (empty = hidden), pick the "most popular" plan. A new name shows everywhere.
+2. **Settings & Social** — support email, "How students pay", About text and your social-media links (empty = hidden).
+3. **Previous Year Papers** — paste Google Drive links (file shared as *Anyone with the link → Viewer*).
+4. **Downloads** — Drive links for sample notes, sample mocks, cheat sheets, anything; type a new category to create it.
+5. **Exam Info**, **Question Bank** (paste questions in the format shown), **Updates** (type + date + link).
+6. **Notes** — each note has "Included from plan"; *Move a whole topic to a plan* changes a topic in one step.
+7. **Mock Tests** — plan, kind (full-length / subject / topic / PYQ-style) and a "CSIR NET — Physical Sciences" marking
+   pattern (Part A +2/−0.5, B +3.5/−0.875, C +5/−1.25; 180 min).
+
+### How access works
+Plans are ordered `free < mock < notes_mock < complete`; every note, test, question and download stores the lowest plan
+that unlocks it (`min_plan`), so higher plans include lower ones automatically. The database enforces this
+(`can_view()` in the RLS policies); the UI only mirrors it. A plan that expires falls back to Free by itself.
+Question-bank answers live in an admin-only table and are revealed only after a student answers. Drive links of
+locked downloads are never sent to the browser.
+
+### Payments
+Today: a student picks a plan → pays by the instructions you wrote → sends the reference → you press
+**Payment received — activate** in Admin → Subscriptions. For automatic payments (Razorpay) you need a Razorpay account,
+a Supabase Edge Function that creates the order, and a webhook that verifies Razorpay's signature and then calls
+`grant_plan()` (already in migration 5, callable only server-side).
+
+### Not built yet
+- "Attempt any 15 / 20 / 20" scoring for CSIR NET (only the first N answered per part count, max score 200). Today every
+  question in the test counts, so build a CSIR-style paper with exactly 15 + 20 + 20 questions to get 200 marks.
+- GATE / JEST mock formats (multiple-select and numerical answers) in the test engine; the question bank already has them.
+- Written step-by-step test solutions and subject-wise / time-management analytics (shown as "Soon" on the plan cards).
+
+### Fixed along the way
+- Logging in now returns you to the page you were trying to reach.
+- A broken admin test form (a scripted edit once removed part of it) was rebuilt; every admin tab is now opened in an
+  automated browser check.

@@ -1,62 +1,141 @@
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { api } from "../api.js";
 import { useAuth } from "../AuthContext.jsx";
-import { EXAMS } from "../taxonomy.js";
+import usePlans from "../usePlans.jsx";
+import { planName, PLAN_IDS, daysLeft, effectivePlan, formatPrice, planRank } from "../plans.js";
+import { summarizeAttempts, sparkPoints, attemptPercent } from "../analytics.js";
+import { getRecent } from "../recent.js";
 import NoticeBoard from "../components/NoticeBoard.jsx";
+import Icon from "../components/Icon.jsx";
 
 const RESOURCES = [
-  { to: "/notes", number: "01", title: "Study Notes", description: "Numbered notes organised by exam, subject, and unit.", action: "Browse notes" },
-  { to: "/pyqs", number: "02", title: "Previous Papers", description: "Read and solve past questions in a continuous question-booklet format.", action: "Open papers" },
-  { to: "/tests", number: "03", title: "Mock Tests", description: "Practise in a focused, full-length exam interface.", action: "Take a test" },
-  { to: "/results", number: "04", title: "My Results", description: "Review completed attempts and use them to steer your next session.", action: "View results" },
+  { to: "/notes", icon: "notes", title: "Notes", need: "notes_mock", full: "All premium notes", part: "Free notes only" },
+  { to: "/tests", icon: "mock", title: "Mock tests", need: "mock", full: "All mock tests", part: "Sample tests only" },
+  { to: "/question-bank", icon: "bank", title: "Question bank", need: "notes_mock", full: "Core question sets", part: "Sample questions only" },
+  { to: "/papers", icon: "papers", title: "Previous Year Papers", need: "free", full: "All papers", part: "All papers" },
 ];
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const firstName = user?.name?.trim().split(/\s+/)[0] || "Scholar";
+  const { plans } = usePlans();
+  const [attempts, setAttempts] = useState(null);
+  const [qb, setQb] = useState(null);
+  const plan = effectivePlan(user);
+  const left = daysLeft(user?.plan_expires_at);
+  const recent = useMemo(() => getRecent(), []);
+
+  useEffect(() => {
+    api.myAttempts().then((d) => setAttempts(d.attempts)).catch(() => setAttempts([]));
+    api.qbStats().then(setQb).catch(() => setQb({ attempted: 0, correct: 0, bookmarked: 0 }));
+  }, []);
+
+  const stats = useMemo(() => summarizeAttempts(attempts || []), [attempts]);
+  const nextId = PLAN_IDS[planRank(plan) + 1];
+  const nextPlan = nextId ? plans.find((p) => p.id === nextId) : null;
+  const nextPrice = nextPlan ? [nextPlan.price_monthly, nextPlan.price_quarterly, nextPlan.price_half_yearly, nextPlan.price_yearly].find((v) => v != null) : null;
+  const expiring = plan !== "free" && left !== null && left <= 7;
+  const lapsed = plan === "free" && user?.plan !== "free" && user?.plan_expires_at && user.role !== "admin";
+  const firstName = user?.name?.trim().split(/\s+/)[0] || "there";
+  const recentAttempts = (attempts || []).filter((a) => a.submitted_at).slice(0, 5);
+
   return (
-    <div className="page dashboard-page">
-      <section className="dashboard-hero dashboard-hero-upgraded">
-        <div className="hero-copy">
-          <p className="eyebrow">Multi-exam preparation platform</p>
-          <h1>Prepare with a plan, {firstName}.</h1>
-          <p className="dashboard-sub">One focused workspace for Physics and interdisciplinary entrance examinations. Select your exam, build concepts systematically, and practise with real questions.</p>
+    <div className="page page-wide">
+      <p className="eyebrow">Dashboard</p>
+      <h1>Welcome back, {firstName}</h1>
+      <p className="page-sub">{user?.email}</p>
+
+      <div className="dash-top">
+        <section className={`card sub-card plan-${plan}`} aria-label="Subscription">
+          <p className="eyebrow">Your plan</p>
+          <h2>{planName(plan)}{user?.role === "admin" && <em className="admin-tag">admin</em>}</h2>
+          {plan === "free" ? (
+            <p className="card-meta">{lapsed ? "Your previous plan has expired." : "Previous papers, exam information and sample practice."}</p>
+          ) : user?.plan_expires_at ? (
+            <p className={`card-meta${expiring ? " warn" : ""}`}>
+              Active until {new Date(user.plan_expires_at).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}
+              {left !== null && ` · ${left} day${left === 1 ? "" : "s"} left`}
+            </p>
+          ) : <p className="card-meta">Active · no expiry date</p>}
           <div className="hero-actions">
-            <Link className="btn btn-primary" to="/notes">Start studying</Link>
-            <Link className="btn btn-ghost" to="/pyqs">Practice previous papers</Link>
+            {plan !== "free" && user?.role !== "admin" && <Link className={`btn btn-sm ${expiring ? "btn-gold" : "btn-ghost"}`} to={`/subscribe?plan=${plan}`}>Renew</Link>}
+            {nextPlan && user?.role !== "admin" && (
+              <Link className="btn btn-gold btn-sm" to={`/subscribe?plan=${nextId}`}>
+                {plan === "free" ? "Subscribe" : "Upgrade"} to {nextPlan.name}{nextPrice != null ? ` · from ${formatPrice(nextPrice)}` : ""}
+              </Link>
+            )}
+            <Link className="btn btn-ghost btn-sm" to="/plans">Compare plans</Link>
           </div>
+        </section>
+
+        <section className="stat-grid" aria-label="Performance">
+          <Stat label="Tests taken" value={stats.count} />
+          <Stat label="Average score" value={stats.avgPct !== null ? `${stats.avgPct}%` : "—"} />
+          <Stat label="Best score" value={stats.bestPct !== null ? `${stats.bestPct}%` : "—"} />
+          <Stat label="Test accuracy" value={stats.accuracy !== null ? `${stats.accuracy}%` : "—"} />
+          <Stat label="Questions practised" value={qb ? qb.attempted : "—"} />
+          <Stat label="Practice accuracy" value={qb && qb.attempted ? `${Math.round((qb.correct / qb.attempted) * 100)}%` : "—"} />
+        </section>
+      </div>
+
+      <section className="section" aria-label="Your resources">
+        <div className="section-head"><div><p className="eyebrow">Your access</p><h2>What your plan opens</h2></div></div>
+        <div className="grid grid-4">
+          {RESOURCES.map((r) => {
+            const full = planRank(plan) >= planRank(r.need);
+            return (
+              <Link key={r.to} to={r.to} className={`card card-hover res-card${full ? "" : " is-partial"}`}>
+                <div className="card-top"><span className="card-icon"><Icon name={r.icon} size={20} /></span>{!full && <Icon name="lock" size={16} />}</div>
+                <h3>{r.title}</h3>
+                <p className="card-meta">{full ? r.full : r.part}</p>
+              </Link>
+            );
+          })}
         </div>
-        <aside className="hero-exam-panel" aria-label="Supported exam tracks">
-          <span className="hero-panel-label">Exam tracks</span>
-          <strong>{EXAMS.length} pathways</strong>
-          <p>Notes, past papers, and tests can be filtered to the examination you are targeting.</p>
-          <div className="exam-chip-list">
-            {EXAMS.slice(0, 5).map((exam) => <span key={exam}>{exam}</span>)}
-            {EXAMS.length > 5 && <span>+{EXAMS.length - 5} more</span>}
+      </section>
+
+      <div className="dash-cols">
+        <section className="card" aria-label="Recent test results">
+          <div className="section-head tight"><h3>Recent results</h3><Link to="/results" className="section-link">All results <Icon name="arrow" size={16} /></Link></div>
+          {!attempts && <p className="card-meta">Loading…</p>}
+          {attempts && recentAttempts.length === 0 && <p className="empty-state">No tests taken yet. <Link to="/tests">Take your first mock test</Link>.</p>}
+          {stats.series.length > 1 && (
+            <svg className="spark" viewBox="0 0 160 44" role="img" aria-label="Score trend">
+              <polyline points={sparkPoints(stats.series)} fill="none" stroke="#0057A8" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+            </svg>
+          )}
+          <ul className="mini-list">
+            {recentAttempts.map((a) => (
+              <li key={a.id}>
+                <Link to={`/tests/result/${a.id}`}><span>{a.title}</span><strong>{Math.round(attemptPercent(a))}%</strong></Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="card" aria-label="Practice and saved">
+          <h3>Practice</h3>
+          <p className="card-meta">{qb ? `${qb.attempted} questions attempted` : "Loading…"}</p>
+          <div className="hero-actions">
+            <Link className="btn btn-navy btn-sm" to="/question-bank">Continue practising</Link>
+            <Link className="btn btn-ghost btn-sm" to="/question-bank?view=bookmarks"><Icon name="bookmark" size={14} /> Saved ({qb ? qb.bookmarked : 0})</Link>
           </div>
-        </aside>
-      </section>
-      <NoticeBoard limit={3} />
-      <section className="dashboard-section" aria-labelledby="resource-heading">
-        <div className="section-heading">
-          <div><p className="eyebrow">Your preparation desk</p><h2 id="resource-heading">Choose where to continue</h2></div>
-          <p>Switch tracks without losing structure: every resource remains organised by exam and syllabus topic.</p>
-        </div>
-        <div className="card-grid">
-          {RESOURCES.map((resource) => (
-            <Link key={resource.to} to={resource.to} className="dash-card">
-              <span className="dash-card-eyebrow">{resource.number}</span>
-              <h3>{resource.title}</h3><p>{resource.description}</p>
-              <span className="dash-card-action">{resource.action} <span aria-hidden="true">-&gt;</span></span>
-            </Link>
-          ))}
-        </div>
-      </section>
-      <section className="dashboard-workflow" aria-label="Preparation workflow">
-        <div><span>01</span><strong>Select an exam</strong><p>Use exam tabs to focus notes and past papers on your target.</p></div>
-        <div><span>02</span><strong>Build concepts</strong><p>Follow numbered notes in syllabus order, including diagrams and images.</p></div>
-        <div><span>03</span><strong>Test and review</strong><p>Attempt questions and mocks, then use results to plan your next session.</p></div>
-      </section>
+          {recent.length > 0 && (
+            <>
+              <h3 className="mt-md">Recently viewed notes</h3>
+              <ul className="mini-list">
+                {recent.slice(0, 4).map((n) => <li key={n.id}><Link to={`/notes/${n.id}`}><span>{n.title}</span><em>{n.subject}</em></Link></li>)}
+              </ul>
+            </>
+          )}
+        </section>
+      </div>
+
+      <NoticeBoard limit={3} title="Latest updates" eyebrow="For you" />
     </div>
   );
+}
+
+function Stat({ label, value }) {
+  return <div className="stat"><strong>{value}</strong><span>{label}</span></div>;
 }

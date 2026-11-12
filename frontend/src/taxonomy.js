@@ -70,3 +70,44 @@ export function unitRank(subject, unit) {
 export function sessionRank(session) {
   return session ? orderIndex(SESSIONS, session) : -1;
 }
+
+// Exams shown as large cards on the Home page and the Exams hub, in order.
+// Any other exam appears on the hub automatically once it has information
+// entered for it (Admin → Exam Info).
+export const FEATURED_EXAMS = ["CSIR NET", "GATE", "JEST"];
+
+// Sections of the Exams hub, in the order they appear as tabs.
+export const EXAM_SECTIONS = [
+  { id: "overview", label: "Overview" },
+  { id: "pattern", label: "Exam pattern" },
+  { id: "syllabus", label: "Syllabus" },
+  { id: "eligibility", label: "Eligibility" },
+  { id: "cutoffs", label: "Cut-offs" },
+  { id: "calendar", label: "Calendar & dates" },
+  { id: "strategy", label: "Preparation" },
+  { id: "faq", label: "FAQ" },
+];
+
+// Categories for the Updates centre.
+export const UPDATE_CATEGORIES = [
+  { id: "exam_notice", label: "Exam notification" },
+  { id: "deadline", label: "Deadline" },
+  { id: "admit_card", label: "Admit card" },
+  { id: "new_material", label: "New material" },
+  { id: "new_test", label: "New test" },
+  { id: "general", label: "General" },
+];
+
+export const DIFFICULTIES = ["easy", "medium", "hard"];
+export const QUESTION_TYPES = [
+  { id: "mcq", label: "MCQ" },
+  { id: "msq", label: "Multiple select" },
+  { id: "nat", label: "Numerical" },
+];
+
+export const TEST_KINDS = [
+  { id: "full", label: "Full-length" },
+  { id: "subject", label: "Subject-wise" },
+  { id: "topic", label: "Topic-wise" },
+  { id: "pyq_style", label: "PYQ-style" },
+];

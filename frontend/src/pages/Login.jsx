@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { api } from "../api.js";
 import { useAuth } from "../AuthContext.jsx";
 import ResendConfirmation from "../components/ResendConfirmation.jsx";
@@ -12,6 +12,7 @@ export default function Login() {
   const [needsConfirm, setNeedsConfirm] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -21,7 +22,7 @@ export default function Login() {
     try {
       const { user } = await api.login({ email, password });
       login(user);
-      navigate("/dashboard");
+      navigate(location.state?.from || "/dashboard");
     } catch (err) {
       setError(err.message);
       setNeedsConfirm(err.code === "email_not_confirmed");

@@ -151,3 +151,28 @@ It will print a link like `http://localhost:5173` — open that in your browser.
 - Notes are shown read-only with copy/right-click/print blocked and a watermark of
   the viewer's name — a deterrent, not a guarantee (a phone camera can always defeat
   any browser-based protection — that's true of every site, not just this one).
+
+
+---
+
+## Starting over from scratch
+
+Use this if you want to wipe the database and/or the repository and rebuild cleanly.
+
+### Supabase — same project (keeps your URL, keys and Vercel settings)
+1. SQL Editor → run `supabase/reset_before_rebuild.sql`. **This deletes all website data** (notes, tests, results,
+   plans, profiles…). Login accounts under Authentication → Users are kept.
+2. Run `supabase/fresh_install_all.sql` (the whole database in one paste; it ends with `true, true, true`).
+3. Run `supabase/backfill_existing_users.sql` after changing the email in its last line to your own. It gives every
+   existing login a profile and makes your account the admin.
+4. Nothing to change in Vercel. Log out and back in; the **Admin** link is back.
+
+### Supabase — brand-new project (also removes all login accounts)
+Create the project, run `fresh_install_all.sql`, register on the site, then set yourself admin (Part 2 above).
+Copy the new Project URL and anon key into Vercel → Settings → Environment Variables
+(`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`) and redeploy.
+
+### GitHub
+Keep the same repository (so Vercel stays connected): clone it fresh, `git rm -r .`, copy the new files in,
+`git add -A`, commit, push. Only if you also want the *history* erased: create an orphan branch
+(`git checkout --orphan fresh`), commit, then `git push -f origin fresh:main`. That cannot be undone.

@@ -1,44 +1,77 @@
-import React, { useEffect, useState } from "react";
-import { api } from "../api.js";
-import RichContent from "../richContent.jsx";
+import React, { lazy, Suspense } from "react";
+import { Link } from "react-router-dom";
+// The Markdown/maths renderer is large, so it loads on demand instead of with the first page.
+const RichContent = lazy(() => import("../richContent.jsx"));
+import useAnnouncements from "../useAnnouncements.js";
+import { categoryLabel, daysUntil, formatDay, upcomingDates } from "../updates.js";
+import Icon from "./Icon.jsx";
 
-// Shown on both the public Home page and the logged-in Dashboard, so every
-// visitor — guest or student — sees the same updates. `limit` trims the list
-// for the compact Dashboard placement; leave it unset to show everything.
-export default function NoticeBoard({ limit }) {
-  const [items, setItems] = useState(null);
-
-  useEffect(() => {
-    let active = true;
-    api.listAnnouncements()
-      .then((d) => { if (active) setItems(d.announcements.filter((a) => a.is_active)); })
-      .catch(() => { if (active) setItems([]); }); // a marketing/dashboard section should never block on an error
-    return () => { active = false; };
-  }, []);
-
-  if (!items || items.length === 0) return null;
-  const shown = limit ? items.slice(0, limit) : items;
-
+// One update as a card: category, title, message, and — when the update has a
+// date attached — the date itself, counted down if it is still ahead.
+export function UpdateCard({ a, full = false }) {
+  const ahead = a.event_date ? daysUntil(a.event_date) : null;
   return (
-    <section className="notice-board" aria-label="Latest updates">
-      <div className="section-heading">
-        <div>
-          <p className="eyebrow">Notice board</p>
-          <h2>Latest updates</h2>
-        </div>
+    <article className={`update-card cat-${a.category || "general"}${a.is_pinned ? " pinned" : ""}`}>
+      <header>
+        <span className="cat-pill">{categoryLabel(a.category)}</span>
+        {a.is_pinned && <span className="pin-tag">Pinned</span>}
+      </header>
+      <h3>{a.title}</h3>
+      <div className={full ? "" : "update-clamp"}><Suspense fallback={null}><RichContent text={a.body} className="notice-body" /></Suspense></div>
+      <footer>
+        {a.event_date ? (
+          <span className={`update-date${ahead !== null && ahead >= 0 && ahead <= 7 ? " soon" : ""}`}>
+            <Icon name="calendar" size={14} /> {formatDay(a.event_date)}
+            {ahead !== null && ahead >= 0 && <em>{ahead === 0 ? "today" : ahead === 1 ? "tomorrow" : `in ${ahead} days`}</em>}
+          </span>
+        ) : (
+          <span className="update-date">{formatDay(a.created_at.slice(0, 10))}</span>
+        )}
+        {a.link_url && (
+          <a className="update-link" href={a.link_url} target="_blank" rel="noopener noreferrer">
+            Details <Icon name="external" size={13} />
+          </a>
+        )}
+      </footer>
+    </article>
+  );
+}
+
+// Compact latest-updates grid for the Home page and Dashboard.
+export default function NoticeBoard({ limit = 4, eyebrow = "Updates", title = "Latest updates" }) {
+  const items = useAnnouncements();
+  if (!items || items.length === 0) return null;
+  return (
+    <section className="section" aria-label={title}>
+      <div className="section-head">
+        <div><p className="eyebrow">{eyebrow}</p><h2>{title}</h2></div>
+        <Link to="/updates" className="section-link">All updates <Icon name="arrow" size={16} /></Link>
       </div>
-      <div className="notice-list">
-        {shown.map((a) => (
-          <article key={a.id} className={`notice-card${a.is_pinned ? " pinned" : ""}`}>
-            {a.is_pinned && <span className="notice-pin">Pinned</span>}
-            <h3>{a.title}</h3>
-            <RichContent text={a.body} className="notice-body" />
-            <span className="notice-date">
-              {new Date(a.created_at).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}
-            </span>
-          </article>
-        ))}
-      </div>
+      <div className="grid grid-4">{items.slice(0, limit).map((a) => <UpdateCard key={a.id} a={a} />)}</div>
     </section>
+  );
+}
+
+// "Next dates" strip: deadlines and exam dates that are still ahead.
+export function UpcomingDates({ limit = 4, dark = false }) {
+  const items = useAnnouncements();
+  const next = items ? upcomingDates(items).slice(0, limit) : [];
+  if (next.length === 0) return null;
+  return (
+    <aside className={`dates-panel${dark ? " dark" : ""}`} aria-label="Upcoming dates">
+      <h3><Icon name="calendar" size={18} /> Upcoming dates</h3>
+      <ul>
+        {next.map((a) => {
+          const n = daysUntil(a.event_date);
+          return (
+            <li key={a.id}>
+              <span className="dates-when"><strong>{formatDay(a.event_date)}</strong><em>{n === 0 ? "today" : `${n} d`}</em></span>
+              <span className="dates-what">{a.title}</span>
+            </li>
+          );
+        })}
+      </ul>
+      <Link to="/updates" className="section-link">All updates <Icon name="arrow" size={16} /></Link>
+    </aside>
   );
 }

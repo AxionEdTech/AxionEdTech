@@ -10,7 +10,7 @@ async function currentAuthUser() {
 async function fetchProfile(userId) {
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, name, email, role, subject, plan")
+    .select("id, name, email, role, subject, plan, plan_expires_at")
     .eq("id", userId)
     .single();
   if (error) throw new Error(error.message);
@@ -24,6 +24,7 @@ async function saveMockTest(testId, test, questions) {
       exam: test.exam, subject: test.subject, title: test.title,
       duration_minutes: Number(test.duration_minutes),
       is_premium: !!test.is_premium, is_preview: !!test.is_preview,
+      min_plan: test.min_plan, kind: test.kind,
     },
     p_questions: questions,
   });
@@ -41,6 +42,18 @@ function authError(error) {
   const e = new Error(f.message);
   e.code = f.code;
   return e;
+}
+
+// Keeps the older is_premium / is_preview flags in step with min_plan. The
+// database does the same in a trigger; doing it here too means the admin
+// screens never send a contradictory pair.
+function withPlan(payload) {
+  // Partial updates (e.g. only a note's position when re-ordering) must not
+  // touch the plan, so only act when the caller actually set one.
+  if (payload.min_plan === undefined) return payload;
+  const min_plan = payload.min_plan || "free";
+  const premium = min_plan !== "free";
+  return { ...payload, min_plan, is_premium: premium, is_preview: premium ? false : !!payload.is_preview };
 }
 
 export const api = {
@@ -88,12 +101,16 @@ export const api = {
 
   // ---- Notes ----
   async listNotes() {
-    const { data, error } = await supabase
-      .from("notes")
-      .select("id, exam, subject, unit, title, created_at, is_premium, is_preview, position")
-      .order("subject").order("unit");
+    const { data, error } = await supabase.rpc("list_notes_catalog");
     if (error) throw new Error(error.message);
     return { notes: data };
+  },
+
+  // For the "this note needs a plan" screen: the title and the plan it needs,
+  // without any of the note's text.
+  async noteMeta(id) {
+    const { notes } = await this.listNotes();
+    return notes.find((n) => String(n.id) === String(id)) || null;
   },
 
   // Guests may open a note that's flagged as a free preview; maybeSingle()
@@ -117,13 +134,13 @@ export const api = {
   },
 
   async createNote(payload) {
-    const { data, error } = await supabase.from("notes").insert(payload).select().single();
+    const { data, error } = await supabase.from("notes").insert(withPlan(payload)).select().single();
     if (error) throw new Error(error.message);
     return { id: data.id };
   },
 
   async updateNote(id, payload) {
-    const { error } = await supabase.from("notes").update(payload).eq("id", id);
+    const { error } = await supabase.from("notes").update(withPlan(payload)).eq("id", id);
     if (error) throw new Error(error.message);
     return { ok: true };
   },
@@ -292,8 +309,8 @@ export const api = {
   // save is all-or-nothing: a bad question can no longer leave behind an empty
   // test or wipe an existing test's questions, and unchanged questions keep
   // their ids so students' old results still line up. Needs migration 4.
-  async createTest({ subject, exam, title, duration_minutes, is_premium, is_preview, questions }) {
-    const id = await saveMockTest(null, { subject, exam, title, duration_minutes, is_premium, is_preview }, questions);
+  async createTest({ subject, exam, title, duration_minutes, min_plan, kind, is_preview, questions }) {
+    const id = await saveMockTest(null, withPlan({ subject, exam, title, duration_minutes, min_plan, kind: kind || "full", is_preview }), questions);
     return { id };
   },
 
@@ -308,8 +325,8 @@ export const api = {
     return { test, questions };
   },
 
-  async updateTest(id, { subject, exam, title, duration_minutes, is_premium, is_preview, questions }) {
-    await saveMockTest(id, { subject, exam, title, duration_minutes, is_premium, is_preview }, questions);
+  async updateTest(id, { subject, exam, title, duration_minutes, min_plan, kind, is_preview, questions }) {
+    await saveMockTest(id, withPlan({ subject, exam, title, duration_minutes, min_plan, kind: kind || "full", is_preview }), questions);
     return { ok: true };
   },
 
@@ -321,6 +338,16 @@ export const api = {
     const msg = String(error?.message || "");
     if (/save_mock_test/i.test(msg) && /(could not find|does not exist|schema cache)/i.test(msg)) return { state: "missing" };
     if (/at least one question|only admins/i.test(msg)) return { state: "installed" };
+    return { state: "unknown", detail: msg };
+  },
+
+  // Is migration 5 (plans, papers, downloads, question bank) installed? Calls a
+  // read-only function that only exists once it has been run.
+  async plansDatabaseStatus() {
+    const { error } = await supabase.rpc("list_downloads");
+    const msg = String(error?.message || "");
+    if (!error) return { state: "installed" };
+    if (/list_downloads/i.test(msg) && /(could not find|does not exist|schema cache)/i.test(msg)) return { state: "missing" };
     return { state: "unknown", detail: msg };
   },
 
@@ -345,18 +372,314 @@ export const api = {
     return { ok: true };
   },
 
-  // ---- Admin: manage a student's plan ----
+  // ---- Admin: students and plans ----
   async listStudents() {
     const { data, error } = await supabase
-      .from("profiles").select("id, name, email, role, subject, plan, created_at")
+      .from("profiles").select("id, name, email, role, subject, plan, plan_expires_at, created_at")
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
     return { students: data };
   },
 
-  async setPlan(userId, plan) {
-    const { error } = await supabase.from("profiles").update({ plan }).eq("id", userId);
+  // Sets a plan for a number of months (renewals of the same plan extend the
+  // current expiry). Use plan "free" to revoke.
+  async adminGrantPlan(userId, plan, months) {
+    const { data, error } = await supabase.rpc("admin_grant_plan", { p_user: userId, p_plan: plan, p_months: months });
+    if (error) throw new Error(error.message);
+    return { expires: data };
+  },
+
+  // ---- Plans and prices ----
+  async listPlans() {
+    const { data, error } = await supabase.from("plans").select("*").order("rank");
+    if (error) throw new Error(error.message);
+    return { plans: data };
+  },
+
+  async updatePlan(id, payload) {
+    const { error } = await supabase.from("plans").update(payload).eq("id", id);
     if (error) throw new Error(error.message);
     return { ok: true };
-  }
+  },
+
+  // ---- Subscription requests (manual verification until a gateway is added) ----
+  async createSubscriptionRequest({ plan, period, amount, payment_ref }) {
+    const authUser = await currentAuthUser();
+    const { error } = await supabase.from("subscription_requests").insert({
+      user_id: authUser.id, plan, period, amount: amount ?? null, payment_ref: payment_ref || null,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  },
+
+  async mySubscriptionRequests() {
+    const authUser = await currentAuthUser();
+    const { data, error } = await supabase
+      .from("subscription_requests").select("*").eq("user_id", authUser.id)
+      .order("created_at", { ascending: false });
+    if (error) throw new Error(error.message);
+    return { requests: data };
+  },
+
+  async listSubscriptionRequests() {
+    const { data, error } = await supabase
+      .from("subscription_requests").select("*, profiles(name, email)")
+      .order("created_at", { ascending: false });
+    if (error) throw new Error(error.message);
+    return { requests: data };
+  },
+
+  async decideSubscription(id, approve) {
+    const { data, error } = await supabase.rpc("admin_decide_subscription", { p_request_id: id, p_approve: approve });
+    if (error) throw new Error(error.message);
+    return { expires: data };
+  },
+
+  // ---- Site settings (contact details, payment instructions, About text) ----
+  async getSettings() {
+    const { data, error } = await supabase.from("site_settings").select("key, value");
+    if (error) throw new Error(error.message);
+    return Object.fromEntries(data.map((r) => [r.key, r.value]));
+  },
+
+  async saveSettings(values) {
+    const rows = Object.entries(values).map(([key, value]) => ({ key, value: value ?? "" }));
+    const { error } = await supabase.from("site_settings").upsert(rows, { onConflict: "key" });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  },
+
+  // ---- Previous-year papers (PDFs on Google Drive) ----
+  async listPapers() {
+    const { data, error } = await supabase.from("pyq_papers").select("*")
+      .order("year", { ascending: false }).order("id", { ascending: false });
+    if (error) throw new Error(error.message);
+    return { papers: data };
+  },
+  async getPaper(id) {
+    const { data, error } = await supabase.from("pyq_papers").select("*").eq("id", id).maybeSingle();
+    if (error) throw new Error(error.message);
+    return { paper: data };
+  },
+  async createPaper(payload) {
+    const { error } = await supabase.from("pyq_papers").insert(payload);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  },
+  async updatePaper(id, payload) {
+    const { error } = await supabase.from("pyq_papers").update(payload).eq("id", id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  },
+  async deletePaper(id) {
+    const { error } = await supabase.from("pyq_papers").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  },
+
+  // ---- Exam information hub ----
+  async listExamInfo() {
+    const { data, error } = await supabase.from("exam_info").select("*")
+      .order("sort_order").order("id");
+    if (error) throw new Error(error.message);
+    return { items: data };
+  },
+  async createExamInfo(payload) {
+    const { error } = await supabase.from("exam_info").insert(payload);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  },
+  async updateExamInfo(id, payload) {
+    const { error } = await supabase.from("exam_info").update({ ...payload, updated_at: new Date().toISOString() }).eq("id", id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  },
+  async deleteExamInfo(id) {
+    const { error } = await supabase.from("exam_info").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  },
+
+  // ---- Question bank ----
+  async qbTopicSummary() {
+    const { data, error } = await supabase.rpc("qb_topic_summary");
+    if (error) throw new Error(error.message);
+    return { topics: data };
+  },
+
+  // Answers are never included here — they come back from checkAnswer() only
+  // after the student has answered.
+  async listQuestions({ exam, subject, unit, difficulty, qtype, ids, limit = 10, offset = 0 } = {}) {
+    let q = supabase.from("qb_questions")
+      .select("id, exam, subject, unit, qtype, difficulty, content, options, source, min_plan, is_preview", { count: "exact" })
+      .order("id").range(offset, offset + limit - 1);
+    if (exam) q = q.eq("exam", exam);
+    if (subject) q = q.eq("subject", subject);
+    if (unit) q = q.eq("unit", unit);
+    if (difficulty) q = q.eq("difficulty", difficulty);
+    if (qtype) q = q.eq("qtype", qtype);
+    if (ids) q = q.in("id", ids.length ? ids : [-1]);
+    const { data, error, count } = await q;
+    if (error) throw new Error(error.message);
+    return { questions: data, count: count ?? data.length };
+  },
+
+  async qbProgress(ids) {
+    if (!ids.length) return { progress: {} };
+    const { data, error } = await supabase.from("qb_progress").select("*").in("question_id", ids);
+    if (error) throw new Error(error.message);
+    return { progress: Object.fromEntries(data.map((r) => [r.question_id, r])) };
+  },
+
+  async qbBookmarkedIds() {
+    const authUser = await currentAuthUser();
+    const { data, error } = await supabase.from("qb_progress").select("question_id")
+      .eq("user_id", authUser.id).eq("bookmarked", true);
+    if (error) throw new Error(error.message);
+    return { ids: data.map((r) => r.question_id) };
+  },
+
+  async checkAnswer(questionId, response) {
+    const { data, error } = await supabase.rpc("check_qb_answer", { p_question_id: questionId, p_response: response });
+    if (error) throw new Error(error.message);
+    return data; // { is_correct, answer_key, explanation }
+  },
+
+  async setBookmark(questionId, value) {
+    const { error } = await supabase.rpc("toggle_qb_bookmark", { p_question_id: questionId, p_value: value });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  },
+
+  async qbStats() {
+    const { data, error } = await supabase.rpc("qb_stats");
+    if (error) throw new Error(error.message);
+    return data || { attempted: 0, correct: 0, bookmarked: 0 };
+  },
+
+  // Admin: questions together with their answer keys.
+  async adminListQuestions({ exam, subject, unit } = {}) {
+    let q = supabase.from("qb_questions").select("*, qb_answers(answer_key, nat_tolerance, explanation)")
+      .order("id", { ascending: false }).limit(300);
+    if (exam) q = q.eq("exam", exam);
+    if (subject) q = q.eq("subject", subject);
+    if (unit) q = q.eq("unit", unit);
+    const { data, error } = await q;
+    if (error) throw new Error(error.message);
+    const questions = data.map((r) => {
+      const a = Array.isArray(r.qb_answers) ? r.qb_answers[0] : r.qb_answers;
+      const { qb_answers, ...rest } = r; // eslint-disable-line no-unused-vars
+      return { ...rest, answer: a || null };
+    });
+    return { questions };
+  },
+
+  // `items` come from parseQuestionBank(); `defaults` = { exam, subject, unit, min_plan, is_preview }.
+  async createQuestions(items, defaults) {
+    const premium = (defaults.min_plan || "free") !== "free";
+    const rows = items.map((it) => ({
+      exam: defaults.exam, subject: defaults.subject, unit: defaults.unit,
+      min_plan: defaults.min_plan || "free", is_preview: premium ? false : !!defaults.is_preview,
+      qtype: it.qtype, difficulty: it.difficulty, content: it.content, options: it.options, source: it.source,
+    }));
+    const { data, error } = await supabase.from("qb_questions").insert(rows).select("id");
+    if (error) throw new Error(error.message);
+    const answers = data.map((r, i) => ({
+      question_id: r.id, answer_key: items[i].answer_key,
+      nat_tolerance: items[i].nat_tolerance, explanation: items[i].explanation,
+    }));
+    const { error: aErr } = await supabase.from("qb_answers").insert(answers);
+    if (aErr) {
+      // Don't leave questions that have no answer key behind.
+      await supabase.from("qb_questions").delete().in("id", data.map((r) => r.id));
+      throw new Error(aErr.message);
+    }
+    return { count: data.length };
+  },
+
+  async updateQuestion(id, item, meta) {
+    const patch = {
+      qtype: item.qtype, difficulty: item.difficulty, content: item.content, options: item.options, source: item.source,
+    };
+    if (meta) {
+      const premium = (meta.min_plan || "free") !== "free";
+      Object.assign(patch, { exam: meta.exam, subject: meta.subject, unit: meta.unit, min_plan: meta.min_plan || "free", is_preview: premium ? false : !!meta.is_preview });
+    }
+    const { error } = await supabase.from("qb_questions").update(patch).eq("id", id);
+    if (error) throw new Error(error.message);
+    const { error: aErr } = await supabase.from("qb_answers").upsert({
+      question_id: id, answer_key: item.answer_key, nat_tolerance: item.nat_tolerance, explanation: item.explanation,
+    }, { onConflict: "question_id" });
+    if (aErr) throw new Error(aErr.message);
+    return { ok: true };
+  },
+
+  async deleteQuestion(id) {
+    const { error } = await supabase.from("qb_questions").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  },
+
+  // ---- Downloads (Drive links) ----
+  // The Drive link only comes back for viewers whose plan allows it.
+  async listDownloads() {
+    const { data, error } = await supabase.rpc("list_downloads");
+    if (error) throw new Error(error.message);
+    return { items: data };
+  },
+  async adminListDownloads() {
+    const { data, error } = await supabase.from("downloads").select("*").order("sort_order").order("id", { ascending: false });
+    if (error) throw new Error(error.message);
+    return { items: data };
+  },
+  async createDownload(payload) {
+    const { error } = await supabase.from("downloads").insert(payload);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  },
+  async updateDownload(id, payload) {
+    const { error } = await supabase.from("downloads").update(payload).eq("id", id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  },
+  async deleteDownload(id) {
+    const { error } = await supabase.from("downloads").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  },
+
+  // Moves every note matching exam / subject / unit to a plan in one go.
+  async setNotesPlan({ exam, subject, unit }, plan) {
+    let q = supabase.from("notes").update(plan === "free" ? { min_plan: "free" } : { min_plan: plan, is_preview: false });
+    if (exam) q = q.eq("exam", exam);
+    if (subject) q = q.eq("subject", subject);
+    if (unit) q = q.eq("unit", unit);
+    const { data, error } = await q.select("id");
+    if (error) throw new Error(error.message);
+    return { count: data.length };
+  },
+
+  // ---- Support / feedback ----
+  async createSupportMessage({ name, email, kind, message }) {
+    let userId = null;
+    try { userId = (await currentAuthUser()).id; } catch { /* guests can write in too */ }
+    const { error } = await supabase.from("support_messages").insert({ user_id: userId, name, email, kind, message });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  },
+  async listSupportMessages() {
+    const { data, error } = await supabase.from("support_messages").select("*").order("created_at", { ascending: false }).limit(200);
+    if (error) throw new Error(error.message);
+    return { messages: data };
+  },
+  async setSupportStatus(id, status) {
+    const { error } = await supabase.from("support_messages").update({ status }).eq("id", id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  },
+  async deleteSupportMessage(id) {
+    const { error } = await supabase.from("support_messages").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  },
 };

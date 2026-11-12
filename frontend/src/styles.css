@@ -1,17 +1,25 @@
 :root {
-  --paper: #F6F4EE;
-  --ink: #16213E;
-  --ink-soft: #3A4568;
-  --accent: #2563EB;
-  --accent-soft: #E8F0FE;
+  /* Axion EdTech palette, taken from the logo */
+  --navy: #021F56;
+  --royal: #0057A8;
+  --gold: #F0BA43;
+  --amber: #F5A000;
+
+  --paper: #F4F7FC;
+  --ink: #021F56;
+  --ink-soft: #3B5282;
+  --accent: #0057A8;
+  --accent-soft: #E6F0FA;
   --danger: #C0392B;
   --danger-soft: #FBEAE7;
-  --warn: #D9932A;
-  --warn-soft: #FBF0DE;
-  --muted: #8A8F9C;
-  --border: #E1DED3;
-  --text: #21262F;
+  --warn: #B87400;
+  --warn-soft: #FEF3D9;
+  --muted: #6F7C97;
+  --border: #DCE4F0;
+  --text: #1B2744;
   --white: #FFFFFF;
+  --shadow-sm: 0 1px 2px rgba(2,31,86,.05), 0 2px 8px rgba(2,31,86,.05);
+  --shadow-md: 0 6px 24px rgba(2,31,86,.10);
 
   --font-display: 'Source Serif 4', Georgia, serif;
   --font-body: 'Inter', system-ui, sans-serif;
