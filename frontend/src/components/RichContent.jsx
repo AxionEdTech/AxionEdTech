@@ -4,8 +4,8 @@ import remarkMath from "remark-math";
 import remarkGfm from "remark-gfm";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
-import { normalizeImageSrc, driveFallbackUrl } from "./driveImage.js";
-import { prepareRichText, remarkInlineBr } from "./richText.js";
+import { normalizeImageSrc, driveFallbackUrl } from "../lib/driveImage.js";
+import { prepareRichText, remarkInlineBr } from "../lib/richText.js";
 
 // A picture from a pasted link (usually Google Drive). While it loads it
 // holds its place in a framed box, so the text around it doesn't jump when it

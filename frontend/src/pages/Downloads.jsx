@@ -1,13 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import { api } from "../api.js";
-import { useAuth } from "../AuthContext.jsx";
-import { driveDownloadUrl } from "../drivePdf.js";
-import { safeUrl } from "../links.js";
-import { orderCategories } from "../social.js";
-import { planBadge } from "../plans.js";
+import { Link, useLocation } from "react-router-dom";
+import { api } from "../lib/api.js";
+import { useAuth } from "../context/AuthContext.jsx";
+import { driveDownloadUrl } from "../lib/drivePdf.js";
+import { safeUrl } from "../lib/links.js";
+import { orderCategories } from "../lib/social.js";
+import { planBadge } from "../lib/plans.js";
 import { TierBadge } from "../components/Cards.jsx";
-import { usePlanNames } from "../usePlans.jsx";
+import { usePlanNames } from "../context/usePlans.jsx";
 import Icon from "../components/Icon.jsx";
 
 const ICONS = {
@@ -79,6 +79,7 @@ export default function Downloads() {
 }
 
 function DownloadCard({ d, signedIn }) {
+  const location = useLocation();
   const open = d.has_access ? safeUrl(d.link_url) : null;
   const save = d.has_access ? (driveDownloadUrl(d.link_url) || open) : null;
   return (
@@ -99,7 +100,7 @@ function DownloadCard({ d, signedIn }) {
         ) : signedIn ? (
           <Link className="btn btn-gold btn-block" to={`/subscribe?plan=${d.min_plan}`}><Icon name="lock" size={15} /> Unlock with {planBadge(d.min_plan)}</Link>
         ) : (
-          <Link className="btn btn-navy btn-block" to="/login">Log in to access</Link>
+          <Link className="btn btn-navy btn-block" to="/login" state={{ from: location.pathname + location.search }}>Log in to access</Link>
         )}
       </div>
     </article>

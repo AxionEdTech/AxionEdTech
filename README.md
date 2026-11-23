@@ -1,178 +1,134 @@
-# Axion EdTech — Exam Prep Portal (1.0.0 version)
+# Axion EdTech — Exam Prep Portal (v1.1)
 
-This version has **no server for you to manage**. There are only two pieces:
+Physics exam preparation site (CSIR NET, GATE, JEST …) — notes, mock tests, a
+question bank, previous-year papers, plans and subscriptions.
 
-1. **Supabase** — a free service that stores your data (notes, questions, student
-   accounts, test results) and handles login security for you.
-2. **Vercel** — a free service that shows your website to visitors.
+There is **no server for you to manage**. Two free services do everything:
 
-You will click through both of their websites — no command-line typing is required
-for either one, except one small optional step if you want to test the site on your
-own computer before it's live.
+- **Supabase** stores the data (notes, questions, students, results) and handles logins.
+- **Vercel** shows the website. Every time you push to GitHub, Vercel rebuilds it.
 
 ---
 
-## Part 1 — Set up Supabase (your database + login system)
+## Updating the live site to this version
 
-1. Go to **supabase.com** and click **Start your project**. Sign up (GitHub login is easiest).
-2. Click **New project**. Give it any name, e.g. `csir-net-portal`. Set a database
-   password — write it down somewhere safe, you likely won't need it again but keep it.
-   Choose a region close to your students (e.g. Mumbai, if most are in India). Click
-   **Create new project** and wait ~2 minutes while it sets up.
-3. On the left sidebar, click the **SQL Editor** icon.
-4. Click **New query**.
-5. Open the file `supabase/schema.sql` from this project (in a plain text editor —
-   Notepad, TextEdit, or VS Code all work), select all the text, copy it, and paste
-   it into the SQL Editor box on the Supabase website.
-6. Click **Run** (bottom right). You should see "Success. No rows returned." This one
-   paste created your entire database — all the tables, security rules, and sample content.
-6a. **If you're setting this up today (not from an old backup):** also open
-   `supabase/migration_2_multi_exam.sql` and `supabase/migration_3_notice_board_and_access_tiers.sql`
-   and run each one the same way, in that order, right after `schema.sql`. They add
-   multi-exam support, the notice board, and the guest/free/paid access tiers —
-   see `UPGRADE_NOTES.md` for what each one does.
-7. On the left sidebar, click **Settings → API**. You'll see two things you need later:
-   - **Project URL** (looks like `https://xxxxx.supabase.co`)
-   - **anon public** key (a long string of letters/numbers)
-   Keep this browser tab open — you'll copy these into Vercel in Part 3.
+1. **Database first.** Log in to the site as admin and open **Admin**. A yellow box says
+   **"Database update 6 needed"**. Click **Copy the SQL**, then **Open this site's Supabase
+   SQL Editor**, paste, press **Run**. The result row should read **true, true, true**.
+   Back on the Admin page, click **Check again** — it now says *Database is up to date*.
+   (The same SQL is in `supabase/migrations/migration_6_phone_number_and_fixes.sql`.)
+2. **Then the website.** Replace your project folder with this one, and in GitHub Desktop
+   **Commit** and **Push**. Vercel redeploys on its own within a minute or two.
 
-**By default, new sign-ups are allowed to log in immediately (no email confirmation
-step).** If you'd rather require students to click a confirmation link in their email
-first, go to **Authentication → Providers → Email** in Supabase and turn on "Confirm email."
+Doing them in the other order is harmless: sign-ups keep working, and phone numbers typed
+before step 1 are copied across when you run it.
 
 ---
 
-## Part 2 — Make yourself the admin
+## What's in the folder
 
-You'll do this *after* you've signed up in the actual app (Part 3), but here's the one
-command you'll need, so you know what's coming: in Supabase's **SQL Editor**, run
-(replacing the email with your own):
+```
+AxionEdTech/
+├── README.md                ← this file
+├── CHANGELOG.md             ← what changed in each version
+├── supabase/                ← the database (run in Supabase → SQL Editor)
+│   ├── fresh_install_all.sql    builds everything on a NEW, empty project
+│   ├── migrations/              the same thing in steps 1–6 (for existing sites)
+│   └── tools/                   reset / re-create profiles (rarely needed)
+└── frontend/                ← the website (Vercel's "Root Directory")
+    ├── index.html               page title, description, fonts
+    ├── public/                  logo files and favicon
+    ├── tests/                   quick automatic checks (npm test)
+    └── src/
+        ├── App.jsx              list of every page and its web address
+        ├── pages/               one file per page (Home, Notes, MockTestAttempt …)
+        ├── components/          pieces used on several pages (Navbar, cards, footer …)
+        │   └── admin/           the Admin page's managers and the database-update box
+        ├── context/             who is logged in, plan names, updates feed
+        ├── lib/                 plain helpers: talking to Supabase (api.js), plans,
+        │                        exam lists, text/maths formatting, parsers
+        ├── styles/              base.css (basics) and site.css (look of the site)
+        └── sql/                 copies of migrations 4–6 used by the Admin update box
+```
+
+## Where to change what
+
+| I want to…                                                  | Do it here |
+|-------------------------------------------------------------|------------|
+| Add notes, tests, questions, papers, updates, prices        | **Admin page** on the site (no code) |
+| Change contact details, social links, payment instructions  | **Admin → Settings & Social** |
+| See students and their phone numbers, grant/revoke plans    | **Admin → Students & Subscriptions** (search, or **Download list (CSV)**) |
+| Add an exam, subject or unit to the dropdowns / their order | `frontend/src/lib/taxonomy.js` |
+| Change what each plan includes (the feature list)           | `frontend/src/lib/plans.js` → `FEATURES` |
+| Change the CSIR NET / GATE marking pattern presets          | `frontend/src/lib/examPatterns.js` |
+| Change the menu at the top                                  | `frontend/src/components/Navbar.jsx` → `LINKS` / `MORE` |
+| Change the home page text                                   | `frontend/src/pages/Home.jsx` |
+| Change colours                                              | top of `frontend/src/styles/base.css` (`--navy`, `--royal`, `--gold` …) |
+| Make the background logo fainter/stronger                   | `frontend/src/styles/site.css` → `--watermark-opacity` |
+| Change the sign-up form                                     | `frontend/src/pages/Register.jsx` |
+| Change the confirmation email                               | Supabase → Authentication → Email Templates |
+
+---
+
+## Setting up from scratch (new Supabase project)
+
+### 1. Supabase
+1. **supabase.com** → **New project**. Pick a region near your students (e.g. Mumbai).
+2. **SQL Editor → New query**, paste all of `supabase/fresh_install_all.sql`, **Run**.
+   If it warns about "destructive operations", choose **Run this query**.
+3. **Settings → API**: keep the **Project URL** and the **anon public** key for step 2.
+4. Before real students sign up: **Authentication → SMTP Settings** — add your own email
+   provider (Resend, Brevo …); Supabase's built-in sender is heavily rate-limited and often
+   lands in Spam. Also set **Authentication → URL Configuration → Site URL** to your live address.
+
+### 2. Vercel
+1. Put this folder on GitHub (GitHub Desktop → **Add local repository** → **Publish**; you
+   can keep it private).
+2. **vercel.com → Add New → Project** → pick the repository.
+3. **Root Directory**: `frontend`.
+4. **Environment Variables**: `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` from step 1.3.
+5. **Deploy**.
+
+### 3. Make yourself admin
+Register on the live site, then in Supabase → SQL Editor run (with your email):
 
 ```sql
 update public.profiles set role = 'admin' where email = 'you@example.com';
 ```
 
-That's it — that one line turns your regular account into an admin account, which
-unlocks the **Admin** menu in the website for adding notes, questions, and tests.
+Log out and back in — the **Admin** link appears in the menu.
 
 ---
 
-## Part 3 — Put the website online with Vercel
+## How access works
 
-1. First, get the code onto GitHub — if you haven't done this part before:
-   - Create a free account at **github.com**
-   - Install **GitHub Desktop** from **desktop.github.com** and sign in
-   - Unzip this project folder somewhere on your computer
-   - In GitHub Desktop: **File → Add local repository** → choose the unzipped folder
-     → click "create a repository" when it asks → **Create Repository** → **Publish repository**
-     (tick "Keep this code private" if you don't want the code itself to be public —
-     this has no effect on who can use the actual website, since login is still required there)
-
-2. Go to **vercel.com** → sign up (GitHub login is easiest) → **Add New** → **Project**
-   → choose your repo.
-3. Vercel will ask for a **Root Directory** — click **Edit** and select `frontend`.
-4. Before clicking Deploy, expand **Environment Variables** and add two:
-   - `VITE_SUPABASE_URL` → paste the Project URL from Part 1, step 7
-   - `VITE_SUPABASE_ANON_KEY` → paste the anon public key from Part 1, step 7
-5. Click **Deploy**. Wait about a minute. You'll get a live link like
-   `https://csir-net-portal.vercel.app` — that's your website, live on the internet.
+- **Previous-year papers and exam information** are free for everyone, no account needed.
+- Every note, test, question and download has an **"Included from plan"** setting:
+  Free → Mock Test → Notes + Mock → Complete. Each plan includes everything below it.
+- This is enforced **inside the database** (Row Level Security), not just hidden on the page,
+  so nobody can see more by tinkering in the browser. Mock-test and question-bank answer keys
+  never reach the browser before the student has answered.
+- Payments are manual for now: students pay using your instructions and send a reference;
+  you approve it in **Admin → Students & Subscriptions**, which switches the plan on.
 
 ---
 
-## Part 4 — Try it out
+## Trying changes on your own computer (optional)
 
-1. Open your live Vercel link, click **Register**, and create your own account.
-2. Go back to Supabase's SQL Editor and run the admin command from Part 2 with your email.
-3. Refresh the website and log in again — you'll now see an **Admin** link in the top menu.
-4. Click **Admin** → add a note, a previous-year question, or a mock test. It appears
-   for students immediately.
-
----
-
-## How the free / paid split works
-
-Every note, question, and mock test has a **"Paid plan only"** checkbox when you add it
-as admin. Everyone can see non-premium content the moment they sign up (your free tier).
-Content marked "Paid plan only" is completely invisible to free accounts — not just
-hidden in the app, but blocked at the database level, so there's no trick a visitor can
-use in their browser to see it early.
-
-To upgrade a specific student to paid (for now, done manually until you connect a
-payment provider): log in as admin, go to **Admin → Manage Students**, find them, and
-click **Mark as paid**.
-
-**Next step when you're ready:** connect a real payment gateway (Razorpay is the
-standard choice in India) so students can pay and get upgraded automatically instead
-of you doing it by hand. That's a contained addition on top of what's here — happy to
-build it whenever you want to add it.
-
----
-
-## Testing on your own computer first (optional)
-
-If you want to see changes before they go live, you can run the site locally. This is
-the one part that uses a terminal:
-
-- **Windows:** press the Windows key, type `cmd`, press Enter
-- **Mac:** press Cmd+Space, type `Terminal`, press Enter
-
-Then, in that black/white window, type each of these lines and press Enter after each
-(replace `path/to/frontend` with the actual unzipped folder path — you can usually drag
-the folder into the terminal window to auto-fill the path):
+Needs **Node.js** (the LTS version from nodejs.org). In a terminal:
 
 ```bash
-cd path/to/frontend
+cd path/to/AxionEdTech/frontend
 npm install
 ```
-(This second command needs Node.js installed first — get it free from **nodejs.org**,
-the "LTS" version, if `npm` says it's not recognized.)
 
-Copy `.env.example` to a new file named `.env` in that same folder, and fill in your
-Supabase URL and key from Part 1. Then:
+Copy `.env.example` to `.env` and fill in the two Supabase values, then:
 
 ```bash
-npm run dev
+npm run dev      # opens the site at http://localhost:5173
+npm test         # quick automatic checks
+npm run build    # the same build Vercel does — shows any error before you push
 ```
-It will print a link like `http://localhost:5173` — open that in your browser.
 
----
-
-## What's actually protecting your data
-
-- Every table's access rules ("who can see/change what") live inside Supabase's
-  database itself (Row Level Security), not in website code — so even if someone
-  found a bug in the website's JavaScript, the database would still refuse to hand
-  over data it shouldn't.
-- Mock test answer keys are never sent to a student's browser while they're taking
-  the test — the scoring happens inside the database itself, and only the final
-  score comes back.
-- Passwords are handled entirely by Supabase's authentication system, never stored
-  or seen by your own code.
-- Notes are shown read-only with copy/right-click/print blocked and a watermark of
-  the viewer's name — a deterrent, not a guarantee (a phone camera can always defeat
-  any browser-based protection — that's true of every site, not just this one).
-
-
----
-
-## Starting over from scratch
-
-Use this if you want to wipe the database and/or the repository and rebuild cleanly.
-
-### Supabase — same project (keeps your URL, keys and Vercel settings)
-1. SQL Editor → run `supabase/reset_before_rebuild.sql`. **This deletes all website data** (notes, tests, results,
-   plans, profiles…). Login accounts under Authentication → Users are kept.
-2. Run `supabase/fresh_install_all.sql` (the whole database in one paste; it ends with `true, true, true`).
-3. Run `supabase/backfill_existing_users.sql` after changing the email in its last line to your own. It gives every
-   existing login a profile and makes your account the admin.
-4. Nothing to change in Vercel. Log out and back in; the **Admin** link is back.
-
-### Supabase — brand-new project (also removes all login accounts)
-Create the project, run `fresh_install_all.sql`, register on the site, then set yourself admin (Part 2 above).
-Copy the new Project URL and anon key into Vercel → Settings → Environment Variables
-(`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`) and redeploy.
-
-### GitHub
-Keep the same repository (so Vercel stays connected): clone it fresh, `git rm -r .`, copy the new files in,
-`git add -A`, commit, push. Only if you also want the *history* erased: create an orphan branch
-(`git checkout --orphan fresh`), commit, then `git push -f origin fresh:main`. That cannot be undone.
+If you edit a file in `supabase/migrations/`, run `npm run sync-sql` so the Admin update box
+carries the new copy (`npm test` reminds you if you forget).

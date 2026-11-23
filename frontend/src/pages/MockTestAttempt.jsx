@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { api } from "../api.js";
-import { renderRich } from "../richContent.jsx";
+import { api } from "../lib/api.js";
+import { renderRich } from "../components/RichContent.jsx";
 
 const PARTS = ["A", "B", "C"];
 
@@ -18,10 +18,16 @@ export default function MockTestAttempt() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [activePart, setActivePart] = useState("A");
   const [secondsLeft, setSecondsLeft] = useState(null);
-  const [error, setError] = useState("");
+  const [error, setError] = useState("");            // the test could not be opened at all
+  const [submitError, setSubmitError] = useState(""); // shown inside the test, with a retry
+  const [unsaved, setUnsaved] = useState(0);          // answers the server has not confirmed yet
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const submittedRef = useRef(false);
+  const deadlineRef = useRef(null);   // when the time runs out (ms since 1970)
+  const answersRef = useRef({});      // the answers on screen (mirrors `answers`)
+  const serverRef = useRef({});       // the answers the server has confirmed
+  const queueRef = useRef(Promise.resolve()); // saves go out one at a time, in order
 
   useEffect(() => {
     api.startTest(testId).then(({ attempt, test, questions: loaded }) => {
@@ -31,30 +37,44 @@ export default function MockTestAttempt() {
       setTest(test);
       setQuestions(questions);
       setAnswers(attempt.answers || {});
+      answersRef.current = { ...(attempt.answers || {}) };
+      serverRef.current = { ...(attempt.answers || {}) };
       setMarked(new Set((attempt.marked || []).map(Number)));
-      // Supabase returns started_at as a full ISO 8601 timestamp already, unlike the old SQLite format.
-      const elapsedSec = Math.floor((Date.now() - new Date(attempt.started_at).getTime()) / 1000);
-      const totalSec = test.duration_minutes * 60;
-      setSecondsLeft(Math.max(totalSec - elapsedSec, 0));
-      if (questions.length) setActivePart(questions[0].part);
+      // The deadline comes from the server's start time, so reloading the page
+      // (or resuming later) never gives extra time.
+      deadlineRef.current = new Date(attempt.started_at).getTime() + test.duration_minutes * 60 * 1000;
+      setSecondsLeft(Math.max(0, Math.round((deadlineRef.current - Date.now()) / 1000)));
+      setActivePart(questions[0].part);
     }).catch((e) => setError(e.message));
   }, [testId]);
 
-  // Timer
+  // Timer. It re-reads the clock every tick instead of counting ticks: browsers
+  // slow timers down in background tabs, which made the old countdown fall behind.
   useEffect(() => {
-    if (secondsLeft === null) return;
-    if (secondsLeft <= 0) {
-      if (!submittedRef.current) doSubmit(true);
-      return;
-    }
-    const t = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
-    return () => clearTimeout(t);
-  }, [secondsLeft]);
+    if (!test) return undefined;
+    const tick = () => setSecondsLeft(Math.max(0, Math.round((deadlineRef.current - Date.now()) / 1000)));
+    const id = setInterval(tick, 1000);
+    document.addEventListener("visibilitychange", tick);
+    return () => { clearInterval(id); document.removeEventListener("visibilitychange", tick); };
+  }, [test]);
+
+  useEffect(() => {
+    if (secondsLeft === 0 && !submittedRef.current) doSubmit(true);
+  }, [secondsLeft]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Ask before leaving mid-test (the clock keeps running on the server).
+  useEffect(() => {
+    if (!test) return undefined;
+    const warn = (e) => { if (!submittedRef.current) { e.preventDefault(); e.returnValue = ""; } };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [test]);
 
   const partQuestions = useMemo(
     () => questions.filter((q) => q.part === activePart),
     [questions, activePart]
   );
+  const partsPresent = useMemo(() => PARTS.filter((p) => questions.some((q) => q.part === p)), [questions]);
   const current = partQuestions[currentIndex];
 
   useEffect(() => {
@@ -79,15 +99,55 @@ export default function MockTestAttempt() {
     return "not-visited";
   }
 
-  async function selectOption(opt) {
-    setAnswers((a) => ({ ...a, [current.id]: opt }));
-    try { await api.saveAnswer(attemptId, current.id, opt); } catch { /* best-effort autosave */ }
+  function countUnsaved(local) {
+    const ids = new Set([...Object.keys(local), ...Object.keys(serverRef.current)]);
+    return [...ids].filter((id) => (local[id] || null) !== (serverRef.current[id] || null)).length;
   }
 
-  async function clearResponse() {
-    setAnswers((a) => { const n = { ...a }; delete n[current.id]; return n; });
-    try { await api.saveAnswer(attemptId, current.id, null); } catch { /* best-effort */ }
+  // Queue one save; resolves true if the server confirmed it.
+  function queueSave(questionId, value) {
+    const run = queueRef.current.then(async () => {
+      try {
+        await api.saveAnswer(attemptId, questionId, value);
+        if (value) serverRef.current[questionId] = value; else delete serverRef.current[questionId];
+        return true;
+      } catch {
+        return false;
+      }
+    });
+    queueRef.current = run;
+    return run;
   }
+
+  function setAnswer(questionId, value) {
+    const next = { ...answersRef.current };
+    if (value) next[questionId] = value; else delete next[questionId];
+    answersRef.current = next;
+    setAnswers(next);
+    queueSave(questionId, value).then(() => setUnsaved(countUnsaved(answersRef.current)));
+  }
+
+  // Sends every answer the server doesn't have yet. Resolves true when all are saved.
+  async function resync() {
+    await queueRef.current;
+    const local = answersRef.current;
+    const ids = new Set([...Object.keys(local), ...Object.keys(serverRef.current)]);
+    const pending = [...ids].filter((id) => (local[id] || null) !== (serverRef.current[id] || null));
+    const results = await Promise.all(pending.map((id) => queueSave(Number(id), local[id] || null)));
+    setUnsaved(countUnsaved(answersRef.current));
+    return results.every(Boolean);
+  }
+
+  // Back online after a dropped connection: send what didn't get through.
+  useEffect(() => {
+    if (!attemptId) return undefined;
+    const onOnline = () => { resync(); };
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, [attemptId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const selectOption = (opt) => setAnswer(current.id, opt);
+  const clearResponse = () => setAnswer(current.id, null);
 
   async function toggleMarkCurrent(goNext) {
     const newMarked = !marked.has(current.id);
@@ -104,13 +164,21 @@ export default function MockTestAttempt() {
     if (currentIndex < partQuestions.length - 1) {
       setCurrentIndex((i) => i + 1);
     } else {
-      const nextPartIdx = PARTS.indexOf(activePart) + 1;
-      if (nextPartIdx < PARTS.length && questions.some((q) => q.part === PARTS[nextPartIdx])) {
-        setActivePart(PARTS[nextPartIdx]);
-        setCurrentIndex(0);
-      }
+      const nextPart = partsPresent[partsPresent.indexOf(activePart) + 1];
+      if (nextPart) { setActivePart(nextPart); setCurrentIndex(0); }
     }
   }
+
+  // Previous also steps back into the end of the previous part.
+  function goToPrevious() {
+    if (currentIndex > 0) { setCurrentIndex((i) => i - 1); return; }
+    const prevPart = partsPresent[partsPresent.indexOf(activePart) - 1];
+    if (prevPart) {
+      setActivePart(prevPart);
+      setCurrentIndex(questions.filter((q) => q.part === prevPart).length - 1);
+    }
+  }
+  const atVeryStart = currentIndex === 0 && partsPresent.indexOf(activePart) <= 0;
 
   function saveAndNext() {
     goToNext();
@@ -125,13 +193,20 @@ export default function MockTestAttempt() {
     if (submittedRef.current) return;
     submittedRef.current = true;
     setSubmitting(true);
+    setSubmitError("");
     try {
+      // Make sure every answer on screen has reached the server before grading.
+      const allSaved = await resync();
+      if (!auto && !allSaved) {
+        throw new Error("Some answers could not be saved — please check your internet connection, then press Submit again.");
+      }
       await api.submitTest(attemptId);
       navigate(`/tests/result/${attemptId}`, { replace: true });
     } catch (e) {
-      setError(e.message);
+      setSubmitError(e.message || "The test could not be submitted. Please try again.");
       submittedRef.current = false;
       setSubmitting(false);
+      setConfirmOpen(true);
     }
   }
 
@@ -153,6 +228,7 @@ export default function MockTestAttempt() {
           <span className="exam-timer-label">Time left</span>
           <span className="exam-timer-value">{timeString()}</span>
         </div>
+        {unsaved > 0 && <span className="exam-unsaved" role="status">{unsaved} answer{unsaved === 1 ? "" : "s"} not saved yet — check your connection</span>}
         <button className="btn btn-primary btn-sm" onClick={() => setConfirmOpen(true)}>Submit test</button>
       </div>
 
@@ -191,7 +267,7 @@ export default function MockTestAttempt() {
           </div>
 
           <div className="exam-actions">
-            <button className="btn btn-ghost" onClick={() => setCurrentIndex((i) => Math.max(i - 1, 0))} disabled={currentIndex === 0}>
+            <button className="btn btn-ghost" onClick={goToPrevious} disabled={atVeryStart}>
               ← Previous
             </button>
             <button className="btn btn-ghost" onClick={clearResponse}>Clear response</button>
@@ -234,10 +310,11 @@ export default function MockTestAttempt() {
           <div className="modal">
             <h3>Submit the test?</h3>
             <p>You've answered {answeredCount} of {questions.length} questions ({unansweredCount} unanswered). This can't be undone.</p>
+            {submitError && <div className="form-error">{submitError}</div>}
             <div className="modal-actions">
-              <button className="btn btn-ghost" onClick={() => setConfirmOpen(false)} disabled={submitting}>Keep working</button>
+              <button className="btn btn-ghost" onClick={() => setConfirmOpen(false)} disabled={submitting || secondsLeft === 0}>Keep working</button>
               <button className="btn btn-primary" onClick={() => doSubmit(false)} disabled={submitting}>
-                {submitting ? "Submitting…" : "Submit"}
+                {submitting ? "Submitting…" : submitError ? "Try again" : "Submit"}
               </button>
             </div>
           </div>

@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
-import { api } from "../api.js";
-import { useAuth } from "../AuthContext.jsx";
-import { DIFFICULTIES, QUESTION_TYPES, examRank, subjectRank, unitRank } from "../taxonomy.js";
-import RichContent, { renderRich } from "../richContent.jsx";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
+import { api } from "../lib/api.js";
+import { useAuth } from "../context/AuthContext.jsx";
+import { DIFFICULTIES, QUESTION_TYPES, examRank, subjectRank, unitRank } from "../lib/taxonomy.js";
+import RichContent, { renderRich } from "../components/RichContent.jsx";
 import { TierBadge } from "../components/Cards.jsx";
 import Icon from "../components/Icon.jsx";
 
@@ -106,6 +106,7 @@ function TopicGrid({ setParams }) {
 // ---------------------------------------------------------------------------
 function Practice({ mode }) {
   const { user } = useAuth();
+  const location = useLocation();
   const [params, setParams] = useSearchParams();
   const exam = params.get("exam") || "";
   const subject = params.get("subject") || "";
@@ -178,7 +179,7 @@ function Practice({ mode }) {
         </div>
       )}
 
-      {!user && <div className="tier-banner"><span>Log in to check your answers and track progress.</span><span className="tier-banner-actions"><Link className="btn btn-gold btn-sm" to="/login">Log in</Link><Link className="btn btn-ghost btn-sm" to="/register">Sign up free</Link></span></div>}
+      {!user && <div className="tier-banner"><span>Log in to check your answers and track progress.</span><span className="tier-banner-actions"><Link className="btn btn-gold btn-sm" to="/login" state={{ from: location.pathname + location.search }}>Log in</Link><Link className="btn btn-ghost btn-sm" to="/register">Sign up free</Link></span></div>}
       {error && <div className="form-error">{error}</div>}
       {!questions && !error && <p className="page-loading">Loading questions…</p>}
       {questions && questions.length === 0 && <p className="empty-state">{mode === "bookmarks" ? "You have not saved any questions yet." : "No questions match these filters."}</p>}
@@ -206,6 +207,7 @@ function Practice({ mode }) {
 }
 
 function QuestionCard({ q, index, user, previous, onProgress }) {
+  const location = useLocation();
   const [answer, setAnswer] = useState(previous?.last_response || "");
   const [result, setResult] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -236,7 +238,8 @@ function QuestionCard({ q, index, user, previous, onProgress }) {
     } catch (e) { setError(e.message); }
   }
 
-  const correctSet = result ? new Set(result.answer_key.split(",")) : null;
+  // The key may be stored as "b" or "A, C": compare letters, ignoring case and spaces.
+  const correctSet = result ? new Set(String(result.answer_key).toUpperCase().split(",").map((x) => x.trim()).filter(Boolean)) : null;
 
   return (
     <article className={`card q-card${result ? (result.is_correct ? " is-right" : " is-wrong") : ""}`}>
@@ -290,7 +293,7 @@ function QuestionCard({ q, index, user, previous, onProgress }) {
           {user ? (
             <button className="btn btn-navy" onClick={check} disabled={busy || !answer}>{busy ? "Checking…" : "Check answer"}</button>
           ) : (
-            <Link className="btn btn-navy" to="/login">Log in to check</Link>
+            <Link className="btn btn-navy" to="/login" state={{ from: location.pathname + location.search }}>Log in to check</Link>
           )}
         </div>
       ) : (

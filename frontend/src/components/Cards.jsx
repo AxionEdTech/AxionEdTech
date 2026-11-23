@@ -1,9 +1,9 @@
 import React from "react";
-import { Link } from "react-router-dom";
-import { useAuth } from "../AuthContext.jsx";
-import { planBadge } from "../plans.js";
-import { usePlanNames } from "../usePlans.jsx";
-import { TEST_KINDS } from "../taxonomy.js";
+import { Link, useLocation } from "react-router-dom";
+import { useAuth } from "../context/AuthContext.jsx";
+import { planBadge } from "../lib/plans.js";
+import { usePlanNames } from "../context/usePlans.jsx";
+import { TEST_KINDS } from "../lib/taxonomy.js";
 import Icon from "./Icon.jsx";
 
 // Plan badge shown on notes, tests and questions: "Free", "Mock Test", ...
@@ -20,6 +20,7 @@ export function kindLabel(kind) {
 // page); without it, the whole card links there (used on the Home page).
 export function TestCard({ t, onStart, starting }) {
   const { user } = useAuth();
+  const location = useLocation();
   usePlanNames();
   const locked = !t.has_access && !!user;
   const body = (
@@ -37,7 +38,7 @@ export function TestCard({ t, onStart, starting }) {
   if (!onStart) return <Link to="/tests" className="card card-hover">{body}</Link>;
 
   let action;
-  if (!user) action = <Link className="btn btn-navy btn-block" to="/login">Log in to start</Link>;
+  if (!user) action = <Link className="btn btn-navy btn-block" to="/login" state={{ from: location.pathname + location.search }}>Log in to start</Link>;
   else if (locked) action = <Link className="btn btn-gold btn-block" to={`/subscribe?plan=${t.min_plan}`}><Icon name="lock" size={15} /> Unlock with {planBadge(t.min_plan)}</Link>;
   else action = <button className="btn btn-navy btn-block" onClick={() => onStart(t.id)} disabled={starting === t.id}>{starting === t.id ? "Starting…" : "Start test"}</button>;
 

@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { api } from "../api.js";
-import RichContent from "../richContent.jsx";
-import { socialLinks } from "../social.js";
+import { api } from "../lib/api.js";
+import RichContent from "../components/RichContent.jsx";
+import { socialLinks } from "../lib/social.js";
 import Icon from "../components/Icon.jsx";
 
 const OFFER = [

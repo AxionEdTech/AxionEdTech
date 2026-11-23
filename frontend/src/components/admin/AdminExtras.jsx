@@ -1,14 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { api } from "../../api.js";
-import { EXAMS, EXAM_SECTIONS, SUBJECTS, UNITS, QUESTION_TYPES } from "../../taxonomy.js";
-import { PERIODS, PLAN_IDS, effectivePlan, formatPrice, planName } from "../../plans.js";
-import { parseDriveFileId } from "../../drivePdf.js";
-import { safeUrl } from "../../links.js";
-import { DOWNLOAD_CATEGORIES, SOCIALS, orderCategories } from "../../social.js";
-import { parseQuestionBank, questionToText, SAMPLE_QB_TEXT } from "../../qbParser.js";
-import usePlans, { usePlanNames } from "../../usePlans.jsx";
+import { api } from "../../lib/api.js";
+import { EXAMS, EXAM_SECTIONS, SUBJECTS, UNITS, QUESTION_TYPES } from "../../lib/taxonomy.js";
+import { PERIODS, PLAN_IDS, effectivePlan, formatPrice, planName } from "../../lib/plans.js";
+import { parseDriveFileId } from "../../lib/drivePdf.js";
+import { safeUrl } from "../../lib/links.js";
+import { DOWNLOAD_CATEGORIES, SOCIALS, orderCategories } from "../../lib/social.js";
+import { parseQuestionBank, questionToText, SAMPLE_QB_TEXT } from "../../lib/qbParser.js";
+import usePlans, { usePlanNames } from "../../context/usePlans.jsx";
 import ContentEditor from "../ContentEditor.jsx";
-import RichContent from "../../richContent.jsx";
+import RichContent from "../RichContent.jsx";
 
 const checkStyle = { flexDirection: "row", alignItems: "center", gap: 8 };
 const fmtDate = (d) => new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
@@ -123,8 +123,30 @@ export function SubscriptionsManager({ onDone }) {
   const pending = (requests || []).filter((r) => r.status === "pending");
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return (students || []).filter((s) => !q || `${s.name} ${s.email}`.toLowerCase().includes(q));
+    return (students || []).filter((s) => !q || `${s.name} ${s.email} ${s.phone || ""}`.toLowerCase().includes(q));
   }, [students, query]);
+
+  // Spreadsheet of the (filtered) student list: opens in Excel / Google Sheets.
+  function exportCsv() {
+    // Names and phone numbers are typed by students. A leading = + - @ would make
+    // Excel treat the cell as a formula ("+91…" shows as an error, "=HYPERLINK(…)"
+    // could run), so such values get an invisible tab in front and stay text.
+    const cell = (v) => {
+      let t = String(v ?? "");
+      if (/^[=+\-@]/.test(t)) t = `\t${t}`;
+      return `"${t.replace(/"/g, '""')}"`;
+    };
+    const rows = [["Name", "Email", "Phone", "Plan", "Plan ends", "Role", "Joined"]].concat(
+      shown.map((s) => [s.name, s.email, s.phone || "", planName(effectivePlan(s)),
+        s.plan_expires_at ? fmtDate(s.plan_expires_at) : "", s.role, s.created_at ? fmtDate(s.created_at) : ""]),
+    );
+    const blob = new Blob(["\ufeff" + rows.map((r) => r.map(cell).join(",")).join("\r\n")], { type: "text/csv;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `axion-students-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
 
   return (
     <div>
@@ -148,8 +170,13 @@ export function SubscriptionsManager({ onDone }) {
         ))}
       </div>
 
-      <h3 style={{ marginTop: 28 }}>Students</h3>
-      <input className="search-input" type="search" placeholder="Search by name or email" value={query} onChange={(e) => setQuery(e.target.value)} style={{ marginBottom: 12 }} />
+      <div className="admin-subhead">
+        <h3>Students{students ? ` (${students.length})` : ""}</h3>
+        <div className="admin-subhead-tools">
+          <input className="search-input" type="search" placeholder="Search name, email or phone" value={query} onChange={(e) => setQuery(e.target.value)} />
+          <button type="button" className="btn btn-ghost btn-sm" onClick={exportCsv} disabled={!shown.length}>Download list (CSV)</button>
+        </div>
+      </div>
       {!students && <p className="page-loading">Loading…</p>}
       <div className="admin-list">
         {shown.map((s) => {
@@ -160,7 +187,7 @@ export function SubscriptionsManager({ onDone }) {
               <div>
                 <strong>{s.name}{s.role === "admin" && " (admin)"}</strong>
                 <span className="admin-list-meta">
-                  {s.email} · {planName(eff)}
+                  {s.email}{s.phone ? <> · <a href={`tel:${s.phone.replace(/[^\d+]/g, "")}`}>{s.phone}</a></> : ""} · {planName(eff)}
                   {eff !== "free" && s.plan_expires_at ? ` until ${fmtDate(s.plan_expires_at)}` : eff !== "free" ? " · no expiry" : s.plan !== "free" ? " · expired" : ""}
                 </span>
               </div>

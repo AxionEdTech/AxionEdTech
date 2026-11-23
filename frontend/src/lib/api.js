@@ -57,9 +57,17 @@ function withPlan(payload) {
 }
 
 export const api = {
-  async register({ name, email, password, subject }) {
+  // `phone` is optional extra contact information: it is stored as given (only
+  // trimmed), never verified, and a sign-up never fails because of it. It
+  // travels with the login's metadata, and the database copies it onto the
+  // student's profile (migration 6).
+  async register({ name, email, password, phone, subject }) {
+    const meta = { name: name.trim() };
+    if (subject) meta.subject = subject;
+    const cleanPhone = (phone || "").trim().slice(0, 30);
+    if (cleanPhone) meta.phone = cleanPhone;
     const { data, error } = await supabase.auth.signUp({
-      email, password, options: { data: { name, subject } }
+      email: email.trim(), password, options: { data: meta }
     });
     if (error) throw authError(error);
     // An email that already has an account looks like a successful sign-up but
@@ -351,6 +359,15 @@ export const api = {
     return { state: "unknown", detail: msg };
   },
 
+  // Is migration 6 (phone number + fixes) installed? Reads the new column.
+  async phoneDatabaseStatus() {
+    const { error } = await supabase.from("profiles").select("phone").limit(1);
+    const msg = String(error?.message || "");
+    if (!error) return { state: "installed" };
+    if (/phone/i.test(msg) && /(does not exist|could not find|schema cache)/i.test(msg)) return { state: "missing" };
+    return { state: "unknown", detail: msg };
+  },
+
   // A student removing one of their own entries from My Results.
   async deleteAttempt(id) {
     const { data, error } = await supabase.from("attempts").delete().eq("id", id).select("id");
@@ -373,10 +390,13 @@ export const api = {
   },
 
   // ---- Admin: students and plans ----
+  // Includes the phone number once migration 6 has added that column; before
+  // that the list still loads, just without phone numbers.
   async listStudents() {
-    const { data, error } = await supabase
-      .from("profiles").select("id, name, email, role, subject, plan, plan_expires_at, created_at")
-      .order("created_at", { ascending: false });
+    const base = "id, name, email, role, subject, plan, plan_expires_at, created_at";
+    const run = (cols) => supabase.from("profiles").select(cols).order("created_at", { ascending: false });
+    let { data, error } = await run(`${base}, phone`);
+    if (error && /phone/i.test(error.message)) ({ data, error } = await run(base));
     if (error) throw new Error(error.message);
     return { students: data };
   },

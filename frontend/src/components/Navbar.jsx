@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
-import { useAuth } from "../AuthContext.jsx";
-import { effectivePlan } from "../plans.js";
-import { usePlanNames } from "../usePlans.jsx";
+import { useAuth } from "../context/AuthContext.jsx";
+import { effectivePlan } from "../lib/plans.js";
+import { usePlanNames } from "../context/usePlans.jsx";
 import Icon from "./Icon.jsx";
 
 const LINKS = [
@@ -79,7 +79,7 @@ export default function Navbar() {
             </>
           ) : (
             <>
-              <Link className="btn btn-ghost btn-sm" to="/login">Log in</Link>
+              <Link className="btn btn-ghost btn-sm" to="/login" state={["/", "/login", "/register"].includes(location.pathname) ? undefined : { from: location.pathname + location.search }}>Log in</Link>
               <Link className="btn btn-gold btn-sm" to="/register">Sign up free</Link>
             </>
           )}

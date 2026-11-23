@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { api } from "./api.js";
-import { PLAN_IDS, PLAN_META, planName, setPlanNames } from "./plans.js";
+import { api } from "../lib/api.js";
+import { PLAN_IDS, PLAN_META, planName, setPlanNames } from "../lib/plans.js";
 
 // Plan names and prices come from the database (Admin -> Plans & Prices) and are
 // loaded once for the whole site, so renaming a plan there changes it on every

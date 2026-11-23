@@ -1,10 +1,11 @@
 import React, { lazy, Suspense } from "react";
 import { Link } from "react-router-dom";
 // The Markdown/maths renderer is large, so it loads on demand instead of with the first page.
-const RichContent = lazy(() => import("../richContent.jsx"));
-import useAnnouncements from "../useAnnouncements.js";
-import { categoryLabel, daysUntil, formatDay, upcomingDates } from "../updates.js";
+const RichContent = lazy(() => import("./RichContent.jsx"));
+import useAnnouncements from "../context/useAnnouncements.js";
+import { categoryLabel, daysUntil, formatDay, upcomingDates } from "../lib/updates.js";
 import Icon from "./Icon.jsx";
+import { safeUrl } from "../lib/links.js";
 
 // One update as a card: category, title, message, and — when the update has a
 // date attached — the date itself, counted down if it is still ahead.
@@ -27,8 +28,8 @@ export function UpdateCard({ a, full = false }) {
         ) : (
           <span className="update-date">{formatDay(a.created_at.slice(0, 10))}</span>
         )}
-        {a.link_url && (
-          <a className="update-link" href={a.link_url} target="_blank" rel="noopener noreferrer">
+        {safeUrl(a.link_url) && (
+          <a className="update-link" href={safeUrl(a.link_url)} target="_blank" rel="noopener noreferrer">
             Details <Icon name="external" size={13} />
           </a>
         )}

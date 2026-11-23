@@ -1,16 +1,16 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { api } from "../api.js";
-import { useAuth } from "../AuthContext.jsx";
+import { Link, Navigate, useNavigate } from "react-router-dom";
+import { api } from "../lib/api.js";
+import { useAuth } from "../context/AuthContext.jsx";
 import ResendConfirmation from "../components/ResendConfirmation.jsx";
 
 export default function Register() {
-  const [form, setForm] = useState({ name: "", email: "", password: "" });
+  const [form, setForm] = useState({ name: "", email: "", phone: "", password: "" });
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [confirmSent, setConfirmSent] = useState(false);
   const [alreadyRegistered, setAlreadyRegistered] = useState(false);
-  const { login } = useAuth();
+  const { user, loading, login } = useAuth();
   const navigate = useNavigate();
 
   function update(field, value) {
@@ -39,11 +39,14 @@ export default function Register() {
     }
   }
 
+  // Already signed in: there is nothing to register.
+  if (!loading && user && !confirmSent) return <Navigate to="/dashboard" replace />;
+
   if (confirmSent) {
     return (
       <div className="auth-shell">
         <div className="auth-card">
-          <img src="/logo.png" alt="Axion EdTech" className="auth-logo" />
+          <img src="/logo-transparent.png" alt="Axion EdTech" className="auth-logo" />
           <h1>Check your email</h1>
           <p className="auth-sub">We've sent a confirmation link to <strong>{form.email}</strong>.</p>
           <ol className="auth-steps">
@@ -65,22 +68,26 @@ export default function Register() {
   return (
     <div className="auth-shell">
       <div className="auth-card">
-        <img src="/logo.png" alt="Axion EdTech" className="auth-logo" />
+        <img src="/logo-transparent.png" alt="Axion EdTech" className="auth-logo" />
         <h1>Create your account</h1>
         <p className="auth-sub">Get access to notes, previous papers and full-length mock tests.</p>
 
         <form onSubmit={onSubmit} className="form">
           <label>
             Full name
-            <input required value={form.name} onChange={(e) => update("name", e.target.value)} placeholder="Ananya Sharma" />
+            <input required autoComplete="name" maxLength={120} value={form.name} onChange={(e) => update("name", e.target.value)} placeholder="Ananya Sharma" />
           </label>
           <label>
             Email
-            <input type="email" required value={form.email} onChange={(e) => update("email", e.target.value)} placeholder="you@example.com" />
+            <input type="email" required autoComplete="email" value={form.email} onChange={(e) => update("email", e.target.value)} placeholder="you@example.com" />
+          </label>
+          <label>
+            <span>Phone number <span className="optional-tag">optional</span></span>
+            <input type="tel" inputMode="tel" autoComplete="tel" maxLength={30} value={form.phone} onChange={(e) => update("phone", e.target.value)} placeholder="+91 98765 43210" />
           </label>
           <label>
             Password
-            <input type="password" required minLength={8} value={form.password} onChange={(e) => update("password", e.target.value)} placeholder="At least 8 characters" />
+            <input type="password" required autoComplete="new-password" minLength={8} value={form.password} onChange={(e) => update("password", e.target.value)} placeholder="At least 8 characters" />
           </label>
           <div className="form-note" role="note">
             <strong>Heads-up:</strong> after you register we'll email you a confirmation link. You need to click it before you can log in — so use an email address you can open right now.

@@ -1,11 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseDriveFileId, drivePreviewUrl, driveViewUrl } from "../src/drivePdf.js";
-import { parseQuestionBank, questionToText, SAMPLE_QB_TEXT } from "../src/qbParser.js";
+import { parseDriveFileId, drivePreviewUrl, driveViewUrl } from "../src/lib/drivePdf.js";
+import { parseQuestionBank, questionToText, SAMPLE_QB_TEXT } from "../src/lib/qbParser.js";
 import {
   effectivePlan, planRank, planRelation, featuresAddedBy, planIncludes, FEATURES, daysLeft,
   activePeriods, formatPrice, PERIODS,
-} from "../src/plans.js";
+} from "../src/lib/plans.js";
 
 // ---- Drive PDF links ----
 test("Drive share link -> embeddable preview", () => {
@@ -111,7 +111,7 @@ test("editing round-trip keeps the question and answer", () => {
 });
 
 // ---- Updates centre helpers ----
-import { sortUpdates, upcomingDates, daysUntil, categoryLabel } from "../src/updates.js";
+import { sortUpdates, upcomingDates, daysUntil, categoryLabel } from "../src/lib/updates.js";
 test("updates: pinned first, then newest", () => {
   const sorted = sortUpdates([
     { id: 1, is_pinned: false, created_at: "2026-11-01T00:00:00Z" },
@@ -133,7 +133,7 @@ test("updates: upcoming dates only include today or later, soonest first", () =>
 });
 
 // ---- Dashboard analytics ----
-import { summarizeAttempts, attemptPercent, sparkPoints } from "../src/analytics.js";
+import { summarizeAttempts, attemptPercent, sparkPoints } from "../src/lib/analytics.js";
 test("analytics: summary of submitted attempts only", () => {
   const s = summarizeAttempts([
     { submitted_at: "2026-10-01T00:00:00Z", score: 60, max_score: 100, correct_count: 30, wrong_count: 10 },
@@ -157,12 +157,12 @@ test("analytics: empty, negative score and chart points", () => {
 test("a position-only update leaves the plan alone", async () => {
   // withPlan is private to api.js, so check the source contract directly.
   const { readFileSync } = await import("node:fs");
-  const src = readFileSync(new URL("../src/api.js", import.meta.url), "utf8");
+  const src = readFileSync(new URL("../src/lib/api.js", import.meta.url), "utf8");
   assert.match(src, /payload\.min_plan === undefined\) return payload/);
 });
 
 // ---- Mock test marking patterns ----
-import { EXAM_PATTERNS, applyPattern, patternSummary } from "../src/examPatterns.js";
+import { EXAM_PATTERNS, applyPattern, patternSummary } from "../src/lib/examPatterns.js";
 test("CSIR NET pattern: marks and negative marks follow the part", () => {
   const out = applyPattern(
     [{ part: "A", marks: 9, negative_marks: 9 }, { part: "b" }, { part: "C" }, { part: "Z", marks: 1, negative_marks: 0 }],
@@ -185,9 +185,9 @@ test("pattern summary compares counts with the real paper", () => {
 });
 
 // ---- Links, social handles, downloads ----
-import { safeUrl } from "../src/links.js";
-import { socialLinks, orderCategories } from "../src/social.js";
-import { driveDownloadUrl } from "../src/drivePdf.js";
+import { safeUrl } from "../src/lib/links.js";
+import { socialLinks, orderCategories } from "../src/lib/social.js";
+import { driveDownloadUrl } from "../src/lib/drivePdf.js";
 test("only web links are allowed through", () => {
   assert.equal(safeUrl("https://instagram.com/axionedtech"), "https://instagram.com/axionedtech");
   assert.equal(safeUrl("  http://example.com "), "http://example.com/");

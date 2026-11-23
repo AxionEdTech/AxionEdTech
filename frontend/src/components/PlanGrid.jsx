@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { useAuth } from "../AuthContext.jsx";
+import { useAuth } from "../context/AuthContext.jsx";
 import {
   FEATURES, PLAN_IDS, PLAN_META, activePeriods, effectivePlan, featuresAddedBy,
   formatPrice, planIncludes, planName, planRank, planRelation,
-} from "../plans.js";
+} from "../lib/plans.js";
 import Icon from "./Icon.jsx";
 
 // The four overlapping plans as pricing cards. Prices and the "popular" flag

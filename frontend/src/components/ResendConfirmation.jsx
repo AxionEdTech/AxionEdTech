@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { api } from "../api.js";
+import { api } from "../lib/api.js";
 
 // "Resend confirmation email" with a short wait between sends (so nobody hits
 // the email provider's rate limit by clicking repeatedly) and a clear result.

@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { api } from "../api.js";
-import { useAuth } from "../AuthContext.jsx";
-import usePlans from "../usePlans.jsx";
-import { planName, PLAN_IDS, daysLeft, effectivePlan, formatPrice, planRank } from "../plans.js";
-import { summarizeAttempts, sparkPoints, attemptPercent } from "../analytics.js";
-import { getRecent } from "../recent.js";
+import { api } from "../lib/api.js";
+import { useAuth } from "../context/AuthContext.jsx";
+import usePlans from "../context/usePlans.jsx";
+import { planName, PLAN_IDS, daysLeft, effectivePlan, formatPrice, planRank } from "../lib/plans.js";
+import { summarizeAttempts, sparkPoints, attemptPercent } from "../lib/analytics.js";
+import { getRecent } from "../lib/recent.js";
 import NoticeBoard from "../components/NoticeBoard.jsx";
 import Icon from "../components/Icon.jsx";
 

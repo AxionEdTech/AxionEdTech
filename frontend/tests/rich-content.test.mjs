@@ -2,9 +2,9 @@
 // Run with:  npm test
 import test from "node:test";
 import assert from "node:assert/strict";
-import { autoImageify, separateTables } from "../src/richText.js";
-import { escapeCell, rowsToMarkdownTable, tsvToMarkdownTable, jsonEscape } from "../src/tableMarkdown.js";
-import { normalizeImageSrc, driveFallbackUrl, isImageLikeUrl } from "../src/driveImage.js";
+import { autoImageify, separateTables } from "../src/lib/richText.js";
+import { escapeCell, rowsToMarkdownTable, tsvToMarkdownTable, jsonEscape } from "../src/lib/tableMarkdown.js";
+import { normalizeImageSrc, driveFallbackUrl, isImageLikeUrl } from "../src/lib/driveImage.js";
 
 const eq = (name, got, want) => test(name, () => assert.deepEqual(got, want));
 

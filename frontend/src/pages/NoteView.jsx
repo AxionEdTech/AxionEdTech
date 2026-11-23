@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { api } from "../api.js";
-import RichContent from "../richContent.jsx";
+import { api } from "../lib/api.js";
+import RichContent from "../components/RichContent.jsx";
 import UpgradeNotice from "../components/UpgradeNotice.jsx";
-import { pushRecent } from "../recent.js";
+import { pushRecent } from "../lib/recent.js";
 
 export default function NoteView() {
   const { id } = useParams();

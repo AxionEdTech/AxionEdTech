@@ -1,7 +1,7 @@
 // Hints and JSON validation for mock-test questions.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseQuestionsText, normalizeQuestions, questionsToText } from "../src/mockTestParser.js";
+import { parseQuestionsText, normalizeQuestions, questionsToText } from "../src/lib/mockTestParser.js";
 
 const t = (name, cond, extra = "") => test(name, () => assert.ok(cond, String(extra)));
 // the user's own question, in Simple text, in their original one-line style

@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { api } from "../api.js";
-import { useAuth } from "../AuthContext.jsx";
-import usePlans from "../usePlans.jsx";
-import RichContent from "../richContent.jsx";
-import { PERIODS, planName, activePeriods, effectivePlan, formatPrice, planRank } from "../plans.js";
+import { api } from "../lib/api.js";
+import { useAuth } from "../context/AuthContext.jsx";
+import usePlans from "../context/usePlans.jsx";
+import RichContent from "../components/RichContent.jsx";
+import { PERIODS, planName, activePeriods, effectivePlan, formatPrice, planRank } from "../lib/plans.js";
 
 const STATUS_LABEL = { pending: "Awaiting confirmation", approved: "Activated", rejected: "Not accepted" };
 

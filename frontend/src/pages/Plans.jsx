@@ -1,5 +1,5 @@
 import React from "react";
-import usePlans from "../usePlans.jsx";
+import usePlans from "../context/usePlans.jsx";
 import PlanGrid, { PlanComparison } from "../components/PlanGrid.jsx";
 
 const NOTES = [

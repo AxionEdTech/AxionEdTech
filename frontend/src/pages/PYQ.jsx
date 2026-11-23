@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { api } from "../api.js";
-import RichContent from "../richContent.jsx";
-import { examRank, sessionRank } from "../taxonomy.js";
-import { useAuth } from "../AuthContext.jsx";
+import { api } from "../lib/api.js";
+import RichContent from "../components/RichContent.jsx";
+import { examRank, sessionRank } from "../lib/taxonomy.js";
+import { useAuth } from "../context/AuthContext.jsx";
 import GuestBanner from "../components/GuestBanner.jsx";
 
 const PAGE_SIZE = 10;

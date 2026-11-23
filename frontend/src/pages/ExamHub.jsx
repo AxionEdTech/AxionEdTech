@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { api } from "../api.js";
-import { EXAMS, EXAM_SECTIONS, FEATURED_EXAMS, examRank } from "../taxonomy.js";
+import { api } from "../lib/api.js";
+import { EXAMS, EXAM_SECTIONS, FEATURED_EXAMS, examRank } from "../lib/taxonomy.js";
 import Icon from "../components/Icon.jsx";
 
 // Every featured exam is always listed; any other exam appears as soon as

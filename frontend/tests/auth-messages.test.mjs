@@ -1,7 +1,7 @@
 // Plain-language auth errors and the "already registered" check.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { friendlyAuthError, isAlreadyRegistered } from "../src/authMessages.js";
+import { friendlyAuthError, isAlreadyRegistered } from "../src/lib/authMessages.js";
 
 test("unconfirmed email (by code or by message)", () => {
   assert.equal(friendlyAuthError({ code: "email_not_confirmed", message: "x" }).code, "email_not_confirmed");

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { api } from "../api.js";
-import { attemptPercent, sparkPoints, summarizeAttempts } from "../analytics.js";
+import { api } from "../lib/api.js";
+import { attemptPercent, sparkPoints, summarizeAttempts } from "../lib/analytics.js";
 import Icon from "../components/Icon.jsx";
 
 const when = (iso) => new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });

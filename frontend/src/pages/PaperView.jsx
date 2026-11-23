@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { api } from "../api.js";
-import { drivePreviewUrl, driveViewUrl } from "../drivePdf.js";
+import { api } from "../lib/api.js";
+import { drivePreviewUrl, driveViewUrl } from "../lib/drivePdf.js";
 
 // Opens a Drive-hosted PDF inside the page. The question paper and (when
 // there is one) the answer key switch in place — no trip to drive.google.com.

@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { api } from "../api.js";
-import { useAuth } from "../AuthContext.jsx";
+import { api } from "../lib/api.js";
+import { useAuth } from "../context/AuthContext.jsx";
 import Icon from "../components/Icon.jsx";
+import { safeUrl } from "../lib/links.js";
 
 const KINDS = [
   { id: "query", label: "Question" },
@@ -36,8 +37,8 @@ export default function Contact() {
 
   const channels = [
     settings.support_email && { icon: "mail", label: "Email", value: settings.support_email, href: `mailto:${settings.support_email}` },
-    settings.whatsapp_url && { icon: "help", label: "WhatsApp", value: "Message us", href: settings.whatsapp_url },
-    settings.telegram_url && { icon: "help", label: "Telegram", value: "Join the channel", href: settings.telegram_url },
+    safeUrl(settings.whatsapp_url) && { icon: "help", label: "WhatsApp", value: "Message us", href: safeUrl(settings.whatsapp_url) },
+    safeUrl(settings.telegram_url) && { icon: "help", label: "Telegram", value: "Join the channel", href: safeUrl(settings.telegram_url) },
     settings.support_phone && { icon: "clock", label: "Phone", value: settings.support_phone, href: `tel:${settings.support_phone}` },
   ].filter(Boolean);
 

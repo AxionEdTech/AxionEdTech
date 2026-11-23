@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { rowsToMarkdownTable, tsvToRows } from "../tableMarkdown.js";
+import { rowsToMarkdownTable, tsvToRows } from "../lib/tableMarkdown.js";
 
 const MAX_COLS = 8;
 const MAX_ROWS = 30;

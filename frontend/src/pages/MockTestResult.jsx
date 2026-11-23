@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { api } from "../api.js";
-import { renderRich } from "../richContent.jsx";
+import { api } from "../lib/api.js";
+import { renderRich } from "../components/RichContent.jsx";
 
 export default function MockTestResult() {
   const { attemptId } = useParams();

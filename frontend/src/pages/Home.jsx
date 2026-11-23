@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { api } from "../api.js";
-import usePlans from "../usePlans.jsx";
-import { FEATURED_EXAMS, EXAMS } from "../taxonomy.js";
+import { api } from "../lib/api.js";
+import usePlans from "../context/usePlans.jsx";
+import { FEATURED_EXAMS, EXAMS } from "../lib/taxonomy.js";
 import PlanGrid from "../components/PlanGrid.jsx";
 import NoticeBoard, { UpcomingDates } from "../components/NoticeBoard.jsx";
 import { NoteCard, PaperCard, TestCard } from "../components/Cards.jsx";

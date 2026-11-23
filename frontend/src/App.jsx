@@ -1,6 +1,6 @@
 import React, { lazy, Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider, useAuth } from "./AuthContext.jsx";
+import { AuthProvider, useAuth } from "./context/AuthContext.jsx";
 import Navbar from "./components/Navbar.jsx";
 import SiteFooter from "./components/SiteFooter.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
@@ -18,7 +18,7 @@ const MockTestResult = lazy(() => import("./pages/MockTestResult.jsx"));
 import MyResults from "./pages/MyResults.jsx";
 const AdminPanel = lazy(() => import("./pages/AdminPanel.jsx"));
 import Plans from "./pages/Plans.jsx";
-import { PlansProvider } from "./usePlans.jsx";
+import { PlansProvider } from "./context/usePlans.jsx";
 const Subscribe = lazy(() => import("./pages/Subscribe.jsx"));
 import Papers from "./pages/Papers.jsx";
 const PaperView = lazy(() => import("./pages/PaperView.jsx"));

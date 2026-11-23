@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { api } from "../api.js";
-import { normalizeImageSrc } from "../driveImage.js";
-import { FEATURED_EXAMS } from "../taxonomy.js";
-import { socialLinks } from "../social.js";
+import { api } from "../lib/api.js";
+import { normalizeImageSrc } from "../lib/driveImage.js";
+import { FEATURED_EXAMS } from "../lib/taxonomy.js";
+import { socialLinks } from "../lib/social.js";
+import { safeUrl } from "../lib/links.js";
 import Icon from "./Icon.jsx";
 
 // Shown on every page via Shell (App.jsx) — deliberately not on the
@@ -73,9 +74,9 @@ export default function SiteFooter() {
                 <strong>{a.name}</strong>
                 {a.bio && <p>{a.bio}</p>}
                 <div className="footer-author-links">
-                  {a.instagram_url && <a href={a.instagram_url} target="_blank" rel="noopener noreferrer">Instagram</a>}
-                  {a.youtube_url && <a href={a.youtube_url} target="_blank" rel="noopener noreferrer">YouTube</a>}
-                  {a.website_url && <a href={a.website_url} target="_blank" rel="noopener noreferrer">Website</a>}
+                  {safeUrl(a.instagram_url) && <a href={safeUrl(a.instagram_url)} target="_blank" rel="noopener noreferrer">Instagram</a>}
+                  {safeUrl(a.youtube_url) && <a href={safeUrl(a.youtube_url)} target="_blank" rel="noopener noreferrer">YouTube</a>}
+                  {safeUrl(a.website_url) && <a href={safeUrl(a.website_url)} target="_blank" rel="noopener noreferrer">Website</a>}
                   {a.email && <a href={`mailto:${a.email}`}>{a.email}</a>}
                 </div>
               </div>

@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from "react";
-import useAnnouncements from "../useAnnouncements.js";
+import useAnnouncements from "../context/useAnnouncements.js";
 import { UpdateCard, UpcomingDates } from "../components/NoticeBoard.jsx";
-import { UPDATE_CATEGORIES } from "../taxonomy.js";
-import { monthKey } from "../updates.js";
+import { UPDATE_CATEGORIES } from "../lib/taxonomy.js";
+import { monthKey } from "../lib/updates.js";
 
 // The notice board, rebuilt as an updates centre: filter by what kind of news
 // it is, see upcoming dates at a glance, and read the rest as a dated feed.

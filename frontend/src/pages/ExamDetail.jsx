@@ -1,14 +1,15 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
-import { api } from "../api.js";
-import { useAuth } from "../AuthContext.jsx";
-import { EXAM_SECTIONS } from "../taxonomy.js";
-import RichContent from "../richContent.jsx";
+import { api } from "../lib/api.js";
+import { useAuth } from "../context/AuthContext.jsx";
+import { EXAM_SECTIONS } from "../lib/taxonomy.js";
+import RichContent from "../components/RichContent.jsx";
 import Icon from "../components/Icon.jsx";
 
 export default function ExamDetail() {
   const { exam: rawExam } = useParams();
-  const exam = decodeURIComponent(rawExam);
+  // The router already decodes the address; decoding again broke names with "%".
+  const exam = rawExam;
   const [items, setItems] = useState(null);
   const [error, setError] = useState("");
   const [params, setParams] = useSearchParams();

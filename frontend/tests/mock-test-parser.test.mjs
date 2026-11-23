@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseQuestionsText, questionsToText } from "../src/mockTestParser.js";
+import { parseQuestionsText, questionsToText } from "../src/lib/mockTestParser.js";
 
 const check = (name, cond) => test(name, () => assert.ok(cond));
 const D = "https://drive.google.com/file/d/1AbC_dEf-123/view?usp=sharing";

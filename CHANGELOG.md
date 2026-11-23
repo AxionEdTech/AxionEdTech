@@ -1,4 +1,67 @@
-# AxionEdTech — Content Organisation Upgrade
+# Changelog
+
+Newest first. Entries before v1.1 use the old file locations — see the table under v1.1.
+
+## v1.1 — November 2026: phone number at sign-up, bug fixes, tidier layout
+
+**Database:** run `supabase/migrations/migration_6_phone_number_and_fixes.sql` once (the Admin page
+offers it with a Copy button). Safe to run again. Result row: `true, true, true`.
+
+### New
+- **Phone number at sign-up** — an optional "Phone number" box on the Register page. It is not
+  checked or verified; it is saved on the student's profile as extra contact information.
+- **Admin → Students & Subscriptions** shows each student's phone (tap to call on a phone), searches
+  by phone too, and has **Download list (CSV)** for Excel / Google Sheets.
+- **Admin page grouped** into *Study content*, *Students & plans* and *Website*. The open tab stays in
+  the address (`/admin?tab=subs`), so a refresh or bookmark returns to it. The "Saved." message stays
+  visible while you scroll.
+- **One database-update box** at the top of Admin checks updates 4, 5 and 6 in order (replaces the two
+  separate boxes).
+
+### Fixed
+- **Background watermark** was a 560 px square pushed off the bottom-right corner (mostly cut off, and
+  wider than a phone screen). It is now a transparent logo, centred under the header and sized to fit
+  any screen. The sign-up/login logo lost its off-white box the same way.
+- **Admin → PYQs (text) could not save** on databases built from these scripts: the old separate
+  question/option columns were still required. (Migration 6.)
+- **Previous Year Papers: clicking an exam tab did nothing** — two address updates in a row, the second
+  undoing the first.
+- **Mock tests**
+  - The countdown fell behind when the tab was in the background (browsers slow timers there); it now
+    reads the clock each second, measured from the server's start time.
+  - An answer whose save failed (bad connection) looked saved but was graded as blank. Saves now go out
+    in order, a warning shows if any hasn't reached the server, they are re-sent when the connection
+    returns, and **Submit makes sure all of them are saved first**.
+  - A failed submit replaced the whole test with an error; it now shows in the dialog with **Try again**.
+  - **Previous** can step back from the first question of Part B into Part A.
+  - Leaving the page mid-test asks first.
+  - The database now refuses answers sent after the time is up (plus 2 minutes' grace). (Migration 6.)
+- **Pages reloading by themselves**: the login listener re-loaded the profile on every hourly token
+  refresh (and when the tab regained focus), which reset the Question Bank list mid-practice. It now
+  reloads only when a different person signs in, and no longer makes database calls inside Supabase's
+  callback (which can freeze the app on "Loading…").
+- Question bank: an answer key typed as `b` or `A, C` is highlighted correctly.
+- "Log in" buttons return you to the page you were on, not always the dashboard. Visiting
+  `/login` or `/register` while signed in goes to the dashboard.
+- Exam pages with `%` in the name no longer crash.
+- Links typed in Admin (author profiles, update links, WhatsApp/Telegram) only become clickable if they
+  are real web addresses.
+- Students could change the email shown on their own profile from the browser console. (Migration 6.)
+- Pinch-to-zoom works on phones again (useful for equations).
+
+### Moved files
+| Before                                   | Now                                              |
+|------------------------------------------|--------------------------------------------------|
+| `frontend/src/*.js` helpers               | `frontend/src/lib/`                              |
+| `src/AuthContext.jsx`, `usePlans.jsx`, `useAnnouncements.js` | `src/context/`             |
+| `src/richContent.jsx`                    | `src/components/RichContent.jsx`                 |
+| `src/styles.css`, `src/site.css`         | `src/styles/base.css`, `src/styles/site.css`     |
+| `src/components/DatabaseUpdatePanel.jsx`, `PlansUpdatePanel.jsx` | `src/components/admin/DatabaseUpdates.jsx` |
+| `supabase/schema.sql`, `migration_2…5`   | `supabase/migrations/migration_1_schema.sql`, `migration_2…6` |
+| `supabase/reset_before_rebuild.sql`, `backfill_existing_users.sql` | `supabase/tools/`      |
+| `public/logo-watermark.png`              | `public/logo-transparent.png` (now truly transparent) |
+
+## Mid 2026 — Content organisation upgrade
 
 ## What changed
 1. **frontend/src/taxonomy.js (NEW)** — single source of truth for the list AND

@@ -30,14 +30,21 @@
 @media (max-width: 960px) { .grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 680px) { .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; } }
 
-/* Faint logo watermark behind every page. Multiply blends the logo's white
-   background away; the opacity keeps it from ever competing with text. */
+/* Faint logo watermark behind every page. logo-transparent.png has a transparent
+   background, so it needs no blend mode. It stays whole and centred in the
+   space under the header at every screen size: its width is the smallest of
+   520px, 70% of the screen width and 62% of the screen height. To make it
+   stronger or fainter, change --watermark-opacity. */
+:root { --watermark-opacity: .045; --header-h: 68px; }
 .app-main { position: relative; min-height: 60vh; overflow-x: clip; }
 .app-main::before {
-  content: ""; position: fixed; right: -140px; bottom: -120px; width: 560px; height: 560px;
-  background: url("/logo-watermark.png") center / contain no-repeat;
-  opacity: .035; mix-blend-mode: multiply; pointer-events: none; z-index: 0;
+  content: ""; position: fixed; z-index: 0; pointer-events: none;
+  left: 50%; top: calc(50% + var(--header-h) / 2); transform: translate(-50%, -50%);
+  width: min(520px, 70vw, 62vh); aspect-ratio: 581 / 587;
+  background: url("/logo-transparent.png") center / contain no-repeat;
+  opacity: var(--watermark-opacity);
 }
+@media print { .app-main::before { display: none; } }
 .app-main > * { position: relative; z-index: 1; }
 
 /* ---------- Buttons ---------- */
@@ -435,11 +442,23 @@
 /* Keep anything scrolled into view clear of the sticky header. */
 html { scroll-padding-top: 88px; }
 
-/* The admin now has 13 tabs: let them wrap onto a second line instead of running off-screen. */
-.admin-tabs { flex-wrap: wrap; row-gap: 2px; }
-.admin-tab { padding: 9px 14px; font-size: .92rem; }
-.admin-tab:hover { color: var(--navy); }
+/* ---------- Admin: tabs grouped by task ---------- */
+.admin-nav { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr); gap: 6px 28px; margin: 4px 0 22px; padding: 14px 16px 6px; background: #fff; border: 1px solid var(--border); border-radius: 12px; }
+.admin-nav-label { display: block; font-size: .7rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
+.admin-nav .admin-tabs { flex-wrap: wrap; row-gap: 2px; margin: 0; border-bottom: 0; }
+.admin-tab { padding: 8px 12px; font-size: .9rem; border-radius: 6px 6px 0 0; }
+.admin-tab:hover { color: var(--navy); background: var(--accent-soft); }
 .admin-tab.active { color: var(--navy); border-bottom-color: var(--amber); }
+@media (max-width: 980px) { .admin-nav { grid-template-columns: 1fr; } }
+/* The "Saved." / error line stays visible while you scroll a long form. */
+.admin-status { position: sticky; top: calc(var(--header-h) + 8px); z-index: 5; box-shadow: var(--shadow-sm); }
+.admin-subhead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; margin: 28px 0 12px; }
+.admin-subhead h3 { margin: 0; }
+.admin-subhead-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.admin-subhead-tools .search-input { min-width: 240px; margin: 0; }
+
+/* "optional" marker next to a form label (e.g. phone number at sign-up) */
+.optional-tag { font-weight: 500; font-size: .75rem; color: var(--muted); background: var(--paper); border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; margin-left: 6px; vertical-align: 1px; }
 
 /* Header spacing: the menu is longer now (Previous Year Papers, Downloads, More). */
 .site-nav-inner { gap: 14px; }
@@ -455,5 +474,6 @@ html { scroll-padding-top: 88px; }
 .result-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .result-actions .btn { flex: 1 1 auto; }
 
-/* The logo file has an off-white background; multiply makes it disappear on the white card. */
-.auth-logo { mix-blend-mode: multiply; }
+
+/* Mock test: warning shown when an answer hasn't reached the server yet */
+.exam-unsaved { font-size: .8rem; font-weight: 600; color: var(--warn); background: var(--warn-soft); border-radius: 6px; padding: 5px 10px; }

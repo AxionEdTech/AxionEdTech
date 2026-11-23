@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import { api } from "../api.js";
-import { useAuth } from "../AuthContext.jsx";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
+import { api } from "../lib/api.js";
+import { useAuth } from "../context/AuthContext.jsx";
 import ResendConfirmation from "../components/ResendConfirmation.jsx";
 
 export default function Login() {
@@ -10,7 +10,7 @@ export default function Login() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [needsConfirm, setNeedsConfirm] = useState(false);
-  const { login } = useAuth();
+  const { user, loading, login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -31,21 +31,24 @@ export default function Login() {
     }
   }
 
+  // Already signed in (e.g. opened /login from a bookmark): go straight on.
+  if (!loading && user && !busy) return <Navigate to={location.state?.from || "/dashboard"} replace />;
+
   return (
     <div className="auth-shell">
       <div className="auth-card">
-        <img src="/logo.png" alt="Axion EdTech" className="auth-logo" />
+        <img src="/logo-transparent.png" alt="Axion EdTech" className="auth-logo" />
         <h1>Welcome back</h1>
         <p className="auth-sub">Log in to access your notes, papers and mock tests.</p>
 
         <form onSubmit={onSubmit} className="form">
           <label>
             Email
-            <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+            <input type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
           </label>
           <label>
             Password
-            <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
+            <input type="password" required autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
           </label>
           {error && <div className="form-error">{error}</div>}
           {needsConfirm && <ResendConfirmation email={email} startCooling={false} />}

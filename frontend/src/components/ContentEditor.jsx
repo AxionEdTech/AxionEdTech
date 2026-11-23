@@ -1,9 +1,9 @@
 import React, { useRef, useState } from "react";
 import GoogleDriveImageButton from "./GoogleDriveImageButton.jsx";
 import TableBuilder from "./TableBuilder.jsx";
-import RichContent from "../richContent.jsx";
-import { insertAtCursor } from "../textInsert.js";
-import { tsvToMarkdownTable } from "../tableMarkdown.js";
+import RichContent from "./RichContent.jsx";
+import { insertAtCursor } from "../lib/textInsert.js";
+import { tsvToMarkdownTable } from "../lib/tableMarkdown.js";
 
 // The one editing box used for Notes and PYQs: the text area plus the tools an
 // author needs around it — add a Drive image, build a table, and preview

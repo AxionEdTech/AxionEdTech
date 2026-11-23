@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { api } from "../api.js";
-import { examRank } from "../taxonomy.js";
-import { groupNotes } from "../noteOrdering.js";
-import { useAuth } from "../AuthContext.jsx";
+import { api } from "../lib/api.js";
+import { examRank } from "../lib/taxonomy.js";
+import { groupNotes } from "../lib/noteOrdering.js";
+import { useAuth } from "../context/AuthContext.jsx";
 import { TierBadge } from "../components/Cards.jsx";
 import Icon from "../components/Icon.jsx";
 

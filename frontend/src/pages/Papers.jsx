@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { api } from "../api.js";
-import { examRank } from "../taxonomy.js";
+import { api } from "../lib/api.js";
+import { examRank } from "../lib/taxonomy.js";
 import { PaperCard } from "../components/Cards.jsx";
 
 export default function Papers() {
@@ -15,9 +15,14 @@ export default function Papers() {
     api.listPapers().then((d) => setPapers(d.papers)).catch((e) => setError(e.message));
   }, []);
 
-  const setFilter = (key, value) => {
+  // Applies several filter changes in ONE update. (Two separate updates in a row
+  // each started from the old address, so the second undid the first: clicking
+  // an exam tab cleared the year and lost the exam.)
+  const setFilters = (changes) => {
     const next = new URLSearchParams(params);
-    if (value) next.set(key, value); else next.delete(key);
+    for (const [key, value] of Object.entries(changes)) {
+      if (value) next.set(key, value); else next.delete(key);
+    }
     setParams(next, { replace: true });
   };
 
@@ -56,11 +61,11 @@ export default function Papers() {
         <>
           <div className="toolbar">
             <div className="exam-tabs">
-              <button className={exam === "" ? "active" : ""} onClick={() => { setFilter("exam", ""); setFilter("year", ""); }}>All exams</button>
-              {exams.map((ex) => <button key={ex} className={exam === ex ? "active" : ""} onClick={() => { setFilter("exam", ex); setFilter("year", ""); }}>{ex}</button>)}
+              <button className={exam === "" ? "active" : ""} onClick={() => setFilters({ exam: "", year: "" })}>All exams</button>
+              {exams.map((ex) => <button key={ex} className={exam === ex ? "active" : ""} onClick={() => setFilters({ exam: ex, year: "" })}>{ex}</button>)}
             </div>
             {years.length > 1 && (
-              <select className="filter-select" value={year} onChange={(e) => setFilter("year", e.target.value)} aria-label="Filter by year">
+              <select className="filter-select" value={year} onChange={(e) => setFilters({ year: e.target.value })} aria-label="Filter by year">
                 <option value="">All years</option>
                 {years.map((y) => <option key={y} value={y}>{y}</option>)}
               </select>

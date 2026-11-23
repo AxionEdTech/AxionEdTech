@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api } from "../api.js";
-import { examRank, TEST_KINDS } from "../taxonomy.js";
+import { api } from "../lib/api.js";
+import { examRank, TEST_KINDS } from "../lib/taxonomy.js";
 import { TestCard } from "../components/Cards.jsx";
 
 export default function MockTestList() {

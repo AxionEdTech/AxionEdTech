@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { api } from "./api.js";
-import { sortUpdates } from "./updates.js";
+import { api } from "../lib/api.js";
+import { sortUpdates } from "../lib/updates.js";
 
 let cache = null;
 

@@ -1,5 +1,5 @@
 // Single source of truth for the subscription model on the front end.
-// The database enforces access (see supabase/migration_4…): this file only
+// The database enforces access (see supabase/migrations/migration_5…): this file only
 // decides what to SHOW. Plans overlap — each plan includes everything in the
 // plans below it — so a feature is defined once, at the plan where it first
 // appears, and every higher plan gets it automatically.

@@ -1,42 +1,61 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { api } from "../api.js";
-import { EXAMS, SUBJECTS, UNITS, SESSIONS, TEST_KINDS, UPDATE_CATEGORIES } from "../taxonomy.js";
-import { planName } from "../plans.js";
-import { EXAM_PATTERNS, applyPattern, patternSummary } from "../examPatterns.js";
-import { clearAnnouncementsCache } from "../useAnnouncements.js";
+import { useSearchParams } from "react-router-dom";
+import { api } from "../lib/api.js";
+import { EXAMS, SUBJECTS, UNITS, SESSIONS, TEST_KINDS, UPDATE_CATEGORIES } from "../lib/taxonomy.js";
+import { planName } from "../lib/plans.js";
+import { EXAM_PATTERNS, applyPattern, patternSummary } from "../lib/examPatterns.js";
+import { clearAnnouncementsCache } from "../context/useAnnouncements.js";
 import {
   PlanSelect, PlansManager, SubscriptionsManager, PapersManager, ExamInfoManager,
   QuestionBankManager, SettingsManager, MessagesManager, DownloadsManager, NotesPlanBulk,
 } from "../components/admin/AdminExtras.jsx";
-import { groupNotes, assignPositions } from "../noteOrdering.js";
-import { insertAtCursor } from "../textInsert.js";
-import { parseQuestionsText, questionsToText, SAMPLE_QUESTIONS_TEXT } from "../mockTestParser.js";
+import { groupNotes, assignPositions } from "../lib/noteOrdering.js";
+import { insertAtCursor } from "../lib/textInsert.js";
+import { parseQuestionsText, questionsToText, SAMPLE_QUESTIONS_TEXT } from "../lib/mockTestParser.js";
 import GoogleDriveImageButton from "../components/GoogleDriveImageButton.jsx";
 import ContentEditor from "../components/ContentEditor.jsx";
-import DatabaseUpdatePanel from "../components/DatabaseUpdatePanel.jsx";
-import PlansUpdatePanel from "../components/PlansUpdatePanel.jsx";
+import DatabaseUpdates from "../components/admin/DatabaseUpdates.jsx";
 import TableBuilder from "../components/TableBuilder.jsx";
-import { renderRich } from "../richContent.jsx";
-import { jsonEscape, tsvToMarkdownTable } from "../tableMarkdown.js";
-import { normalizeQuestions } from "../mockTestParser.js";
+import { renderRich } from "../components/RichContent.jsx";
+import { jsonEscape, tsvToMarkdownTable } from "../lib/tableMarkdown.js";
+import { normalizeQuestions } from "../lib/mockTestParser.js";
 
-import { normalizeImageSrc } from "../driveImage.js";
+import { normalizeImageSrc } from "../lib/driveImage.js";
 
-const TABS = [
-  { id: "notices", label: "Updates" },
-  { id: "notes", label: "Notes" },
-  { id: "tests", label: "Mock Tests" },
-  { id: "qbank", label: "Question Bank" },
-  { id: "papers", label: "Previous Year Papers" },
-  { id: "downloads", label: "Downloads" },
-  { id: "examinfo", label: "Exam Info" },
-  { id: "subs", label: "Subscriptions" },
-  { id: "plans", label: "Plans & Prices" },
-  { id: "settings", label: "Settings & Social" },
-  { id: "messages", label: "Messages" },
-  { id: "author", label: "Author" },
-  { id: "pyqs", label: "PYQs (text)" },
+// The Admin page, grouped by what you are doing. Each tab is one manager below
+// (most live in components/admin/AdminExtras.jsx). The open tab is kept in the
+// address (?tab=notes), so a refresh or a bookmark brings you back to it.
+const TAB_GROUPS = [
+  {
+    label: "Study content",
+    tabs: [
+      { id: "notes", label: "Notes" },
+      { id: "tests", label: "Mock Tests" },
+      { id: "qbank", label: "Question Bank" },
+      { id: "papers", label: "Previous Year Papers" },
+      { id: "pyqs", label: "PYQs (text)" },
+      { id: "downloads", label: "Downloads" },
+      { id: "examinfo", label: "Exam Info" },
+    ],
+  },
+  {
+    label: "Students & plans",
+    tabs: [
+      { id: "subs", label: "Students & Subscriptions" },
+      { id: "plans", label: "Plans & Prices" },
+      { id: "messages", label: "Messages" },
+    ],
+  },
+  {
+    label: "Website",
+    tabs: [
+      { id: "notices", label: "Updates" },
+      { id: "settings", label: "Settings & Social" },
+      { id: "author", label: "Author" },
+    ],
+  },
 ];
+const TABS = TAB_GROUPS.flatMap((g) => g.tabs);
 
 // Exam suggestions everywhere now come straight from the shared taxonomy so
 // this list can never drift out of sync with what the public pages expect.
@@ -67,25 +86,33 @@ const SAMPLE_QUESTIONS_JSON = JSON.stringify([
 ], null, 2);
 
 export default function AdminPanel() {
-  const [tab, setTab] = useState(0);
+  const [params, setParams] = useSearchParams();
   const [status, setStatus] = useState("");
-  const current = TABS[tab].id;
+  const current = TABS.some((t) => t.id === params.get("tab")) ? params.get("tab") : TABS[0].id;
+  const open = (id) => { setParams({ tab: id }, { replace: true }); setStatus(""); };
 
   return (
     <div className="page page-wide">
       <h1>Admin</h1>
 
-      <PlansUpdatePanel />
+      <DatabaseUpdates />
 
-      <div className="admin-tabs">
-        {TABS.map((t, i) => (
-          <button key={t.id} className={`admin-tab ${tab === i ? "active" : ""}`} onClick={() => { setTab(i); setStatus(""); }}>
-            {t.label}
-          </button>
+      <nav className="admin-nav" aria-label="Admin sections">
+        {TAB_GROUPS.map((g) => (
+          <div key={g.label} className="admin-nav-group">
+            <span className="admin-nav-label">{g.label}</span>
+            <div className="admin-tabs">
+              {g.tabs.map((t) => (
+                <button key={t.id} type="button" className={`admin-tab ${current === t.id ? "active" : ""}`} aria-current={current === t.id ? "page" : undefined} onClick={() => open(t.id)}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
         ))}
-      </div>
+      </nav>
 
-      {status && <div className="form-note">{status}</div>}
+      {status && <div className="form-note admin-status" role="status">{status}</div>}
 
       {current === "notices" && <AnnouncementsManager onDone={setStatus} />}
       {current === "notes" && (<><NotesPlanBulk onDone={setStatus} /><NotesManager onDone={setStatus} /></>)}
@@ -707,7 +734,6 @@ function TestManager({ onDone }) {
 
   return (
     <div>
-      <DatabaseUpdatePanel />
       <TestForm
         key={editing?.id ?? "new"}
         editing={editing}

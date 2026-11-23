@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { driveImageUrl } from "../driveImage.js";
+import { driveImageUrl } from "../lib/driveImage.js";
 
 // Replaces file upload entirely — no storage used on our side. An admin
 // pastes a Google Drive share link, this converts it into a URL that
