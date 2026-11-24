@@ -1,4 +1,4 @@
-// The Admin "Database updates" box offers migrations 4, 5 and 6 for one-click copying.
+// The Admin "Database updates" box offers migrations 4 to 7 for one-click copying.
 // Vercel builds from frontend/, which can't see ../supabase, so the app carries a copy of each.
 // The files in supabase/migrations/ are the originals: edit THOSE, then run `npm run sync-sql`.
 // (`npm test` fails if a copy ever differs from its original.)
@@ -9,6 +9,7 @@ export const SQL_COPIES = [
   "migration_4_hints_and_results_cleanup.sql",
   "migration_5_plans_papers_exam_hub_question_bank.sql",
   "migration_6_phone_number_and_fixes.sql",
+  "migration_7_question_bank_topics.sql",
 ];
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

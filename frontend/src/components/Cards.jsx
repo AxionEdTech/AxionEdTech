@@ -4,6 +4,7 @@ import { useAuth } from "../context/AuthContext.jsx";
 import { planBadge } from "../lib/plans.js";
 import { usePlanNames } from "../context/usePlans.jsx";
 import { TEST_KINDS } from "../lib/taxonomy.js";
+import { attemptPercent } from "../lib/analytics.js";
 import Icon from "./Icon.jsx";
 
 // Plan badge shown on notes, tests and questions: "Free", "Mock Test", ...
@@ -18,7 +19,10 @@ export function kindLabel(kind) {
 
 // A mock test. With onStart it is a working card (used on the Mock Tests
 // page); without it, the whole card links there (used on the Home page).
-export function TestCard({ t, onStart, starting }) {
+// `mine` is this student's history with the test:
+//   { result: their latest submitted attempt or null, inProgress: true/false }
+// so a finished test shows "View result" and "Reset" instead of "Start test".
+export function TestCard({ t, onStart, starting, mine }) {
   const { user } = useAuth();
   const location = useLocation();
   usePlanNames();
@@ -40,9 +44,32 @@ export function TestCard({ t, onStart, starting }) {
   let action;
   if (!user) action = <Link className="btn btn-navy btn-block" to="/login" state={{ from: location.pathname + location.search }}>Log in to start</Link>;
   else if (locked) action = <Link className="btn btn-gold btn-block" to={`/subscribe?plan=${t.min_plan}`}><Icon name="lock" size={15} /> Unlock with {planBadge(t.min_plan)}</Link>;
+  else if (mine?.inProgress) action = <button className="btn btn-gold btn-block" onClick={() => onStart(t.id)} disabled={starting === t.id}>{starting === t.id ? "Opening…" : "Resume test"}</button>;
+  else if (mine?.result) {
+    const r = mine.result;
+    const reset = () => {
+      if (window.confirm(`Reset "${t.title}" and take it again from the beginning?\n\nYour earlier result stays in My Results.`)) onStart(t.id);
+    };
+    action = (
+      <>
+        <p className="test-last-score">
+          <Icon name="check" size={14} /> Submitted · {fmtScore(r.score)}/{fmtScore(r.max_score)} ({Math.round(attemptPercent(r))}%)
+        </p>
+        <div className="card-action-row">
+          <Link className="btn btn-navy" to={`/tests/result/${r.id}`}>View result</Link>
+          <button className="btn btn-ghost" onClick={reset} disabled={starting === t.id}>{starting === t.id ? "Starting…" : "Reset"}</button>
+        </div>
+      </>
+    );
+  }
   else action = <button className="btn btn-navy btn-block" onClick={() => onStart(t.id)} disabled={starting === t.id}>{starting === t.id ? "Starting…" : "Start test"}</button>;
 
-  return <article className={`card${locked ? " is-locked" : ""}`}>{body}<div className="card-action">{action}</div></article>;
+  return <article className={`card${locked ? " is-locked" : ""}${mine?.result && !mine.inProgress ? " is-done" : ""}`}>{body}<div className="card-action">{action}</div></article>;
+}
+
+function fmtScore(v) {
+  const n = Number(v) || 0;
+  return Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
 }
 
 export function NoteCard({ n }) {

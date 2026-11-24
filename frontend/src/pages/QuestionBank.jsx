@@ -20,84 +20,146 @@ export default function QuestionBank() {
 }
 
 // ---------------------------------------------------------------------------
-// Topic grid: one card per exam / subject / topic, with the viewer's progress.
+// The question bank's front page, in two views like Mock Tests:
+//   Subject-wise  one card per unit (e.g. Mathematical Methods of Physics)
+//   Topic-wise    the topics inside each unit (e.g. Vector Analysis), grouped
+//                 under their unit, plus an "all questions" card per unit.
+// The view is kept in the address (?by=topic) so Back returns to it.
 // ---------------------------------------------------------------------------
+const VIEWS = [
+  { id: "unit", label: "Subject-wise" },
+  { id: "topic", label: "Topic-wise" },
+];
+
+// One summary row per exam/subject/unit/topic → per-unit totals.
+function groupUnits(rows) {
+  const map = new Map();
+  for (const r of rows) {
+    const key = `${r.exam}|${r.subject}|${r.unit}`;
+    const u = map.get(key) || { exam: r.exam, subject: r.subject, unit: r.unit, total: 0, accessible: 0, attempted: 0, correct: 0, topics: [] };
+    u.total += Number(r.total); u.accessible += Number(r.accessible);
+    u.attempted += Number(r.attempted); u.correct += Number(r.correct);
+    if (r.topic) u.topics.push({ ...r, total: Number(r.total), accessible: Number(r.accessible), attempted: Number(r.attempted), correct: Number(r.correct) });
+    map.set(key, u);
+  }
+  for (const u of map.values()) u.topics.sort((a, b) => a.topic.localeCompare(b.topic));
+  return [...map.values()];
+}
+
+function practiceLink({ exam, subject, unit, topic }, by) {
+  const p = new URLSearchParams({ exam, subject, unit });
+  if (topic) p.set("topic", topic);
+  if (by === "topic") p.set("by", "topic");
+  return p;
+}
+
 function TopicGrid({ setParams }) {
   const { user } = useAuth();
-  const [topics, setTopics] = useState(null);
+  const [params] = useSearchParams();
+  const by = params.get("by") === "topic" ? "topic" : "unit";
+  const [rows, setRows] = useState(null);
   const [stats, setStats] = useState(null);
   const [error, setError] = useState("");
   const [exam, setExam] = useState("");
 
   useEffect(() => {
-    api.qbTopicSummary().then((d) => setTopics(d.topics)).catch((e) => setError(e.message));
+    api.qbTopicSummary().then((d) => setRows(d.topics)).catch((e) => setError(e.message));
     if (user) api.qbStats().then(setStats).catch(() => {});
   }, [user]);
 
-  const exams = useMemo(
-    () => (topics ? [...new Set(topics.map((t) => t.exam))].sort((a, b) => examRank(a) - examRank(b)) : []),
-    [topics]
-  );
-  const shown = useMemo(
-    () => (topics || [])
-      .filter((t) => !exam || t.exam === exam)
-      .sort((a, b) => examRank(a.exam) - examRank(b.exam) || subjectRank(a.subject) - subjectRank(b.subject)
-        || unitRank(a.subject, a.unit) - unitRank(b.subject, b.unit)),
-    [topics, exam]
-  );
+  const units = useMemo(() => groupUnits(rows || [])
+    .sort((a, b) => examRank(a.exam) - examRank(b.exam) || subjectRank(a.subject) - subjectRank(b.subject)
+      || unitRank(a.subject, a.unit) - unitRank(b.subject, b.unit)), [rows]);
+  const exams = useMemo(() => [...new Set(units.map((u) => u.exam))], [units]);
+  const shown = units.filter((u) => !exam || u.exam === exam);
+  const anyTopics = shown.some((u) => u.topics.length > 0);
+  const setView = (id) => setParams(id === "topic" ? { by: "topic" } : {}, { replace: true });
+  const open = (item) => setParams(practiceLink(item, by));
 
-  if (!topics && !error) return <div className="page-loading">Loading question bank…</div>;
+  if (!rows && !error) return <div className="page-loading">Loading question bank…</div>;
 
   return (
     <div className="page page-wide">
-      <p className="eyebrow">Practice by topic</p>
+      <p className="eyebrow">Practice by subject and topic</p>
       <h1>Question Bank</h1>
       {error && <div className="form-error">{error}</div>}
 
       <div className="toolbar">
-        {exams.length > 1 ? (
-          <div className="exam-tabs">
-            <button className={exam === "" ? "active" : ""} onClick={() => setExam("")}>All exams</button>
-            {exams.map((ex) => <button key={ex} className={exam === ex ? "active" : ""} onClick={() => setExam(ex)}>{ex}</button>)}
-          </div>
-        ) : <span />}
-        {user && (
-          <Link className="btn btn-ghost btn-sm" to="/question-bank?view=bookmarks">
-            <Icon name="bookmark" size={15} /> Saved questions{stats ? ` (${stats.bookmarked})` : ""}
-          </Link>
-        )}
+        <div className="exam-tabs" role="tablist" aria-label="Group questions">
+          {VIEWS.map((v) => (
+            <button key={v.id} role="tab" aria-selected={by === v.id} className={by === v.id ? "active" : ""} onClick={() => setView(v.id)}>{v.label}</button>
+          ))}
+        </div>
+        <div className="toolbar-right">
+          {exams.length > 1 && (
+            <select className="filter-select" value={exam} onChange={(e) => setExam(e.target.value)} aria-label="Filter by exam">
+              <option value="">All exams</option>
+              {exams.map((ex) => <option key={ex} value={ex}>{ex}</option>)}
+            </select>
+          )}
+          {user && (
+            <Link className="btn btn-ghost btn-sm" to="/question-bank?view=bookmarks">
+              <Icon name="bookmark" size={15} /> Saved questions{stats ? ` (${stats.bookmarked})` : ""}
+            </Link>
+          )}
+        </div>
       </div>
 
       {shown.length === 0 && !error && <p className="empty-state">No questions have been added yet.</p>}
 
-      <div className="grid grid-3">
-        {shown.map((t) => {
-          const pct = t.accessible ? Math.round((t.attempted / t.accessible) * 100) : 0;
-          const acc = t.attempted ? Math.round((t.correct / t.attempted) * 100) : null;
-          const link = `?exam=${encodeURIComponent(t.exam)}&subject=${encodeURIComponent(t.subject)}&unit=${encodeURIComponent(t.unit)}`;
-          return (
-            <button key={`${t.exam}|${t.subject}|${t.unit}`} className="card card-hover topic-tile" onClick={() => setParams(new URLSearchParams(link))}>
-              <div className="card-top">
-                <span className="card-icon"><Icon name="bank" size={20} /></span>
-                <span className="tier-badge tier-info">{t.exam}</span>
-              </div>
-              <h3>{t.unit}</h3>
-              <p className="card-meta">{t.subject}</p>
-              <p className="card-meta">
-                {t.total} question{t.total === 1 ? "" : "s"}
-                {t.accessible < t.total && <> · <Icon name="lock" size={13} /> {t.total - t.accessible} in higher plans</>}
-              </p>
-              {user && (
-                <div className="progress" aria-label={`${pct}% attempted`}>
-                  <span style={{ width: `${pct}%` }} />
-                </div>
-              )}
-              {user && <p className="card-meta">{t.attempted} attempted{acc !== null ? ` · ${acc}% correct` : ""}</p>}
-            </button>
-          );
-        })}
-      </div>
+      {by === "unit" && (
+        <div className="grid grid-3">
+          {shown.map((u) => (
+            <ProgressTile key={`${u.exam}|${u.subject}|${u.unit}`} item={u} user={user} onOpen={() => open(u)}
+              title={u.unit} meta={u.subject}
+              extra={u.topics.length > 0 ? `${u.topics.length} topic${u.topics.length === 1 ? "" : "s"}` : null} />
+          ))}
+        </div>
+      )}
+
+      {by === "topic" && shown.length > 0 && !anyTopics && (
+        <p className="empty-state">Questions haven't been sorted into topics yet — use Subject-wise for now.</p>
+      )}
+      {by === "topic" && shown.filter((u) => u.topics.length > 0).map((u) => (
+        <section key={`${u.exam}|${u.subject}|${u.unit}`} className="qb-unit-group" aria-label={u.unit}>
+          <div className="qb-unit-head">
+            <h2>{u.unit}</h2>
+            <span className="card-meta">{u.exam} · {u.subject}</span>
+          </div>
+          <div className="grid grid-3">
+            {u.topics.map((t) => (
+              <ProgressTile key={t.topic} item={t} user={user} onOpen={() => open(t)} title={t.topic} meta={u.unit} />
+            ))}
+            <ProgressTile item={u} user={user} onOpen={() => open(u)} title={`All of ${u.unit}`} meta="Every topic mixed together" muted />
+          </div>
+        </section>
+      ))}
     </div>
+  );
+}
+
+function ProgressTile({ item: t, user, onOpen, title, meta, extra, muted }) {
+  const pct = t.accessible ? Math.round((t.attempted / t.accessible) * 100) : 0;
+  const acc = t.attempted ? Math.round((t.correct / t.attempted) * 100) : null;
+  return (
+    <button className={`card card-hover topic-tile${muted ? " topic-tile-all" : ""}`} onClick={onOpen}>
+      <div className="card-top">
+        <span className="card-icon"><Icon name={muted ? "layers" : "bank"} size={20} /></span>
+        <span className="tier-badge tier-info">{t.exam}</span>
+      </div>
+      <h3>{title}</h3>
+      <p className="card-meta">{meta}{extra ? ` · ${extra}` : ""}</p>
+      <p className="card-meta">
+        {t.total} question{t.total === 1 ? "" : "s"}
+        {t.accessible < t.total && <> · <Icon name="lock" size={13} /> {t.total - t.accessible} in higher plans</>}
+      </p>
+      {user && (
+        <div className="progress" aria-label={`${pct}% attempted`}>
+          <span style={{ width: `${pct}%` }} />
+        </div>
+      )}
+      {user && <p className="card-meta">{t.attempted} attempted{acc !== null ? ` · ${acc}% correct` : ""}</p>}
+    </button>
   );
 }
 
@@ -111,6 +173,9 @@ function Practice({ mode }) {
   const exam = params.get("exam") || "";
   const subject = params.get("subject") || "";
   const unit = params.get("unit") || "";
+  const topic = params.get("topic") || "";
+  const by = params.get("by") === "topic" ? "topic" : "unit";
+  const [unitTopics, setUnitTopics] = useState([]); // summary rows for this unit's topics
   const [difficulty, setDifficulty] = useState("");
   const [qtype, setQtype] = useState("");
   const [questions, setQuestions] = useState(null);
@@ -123,11 +188,11 @@ function Practice({ mode }) {
   const fetchPage = useCallback(async (offset, ids) => {
     const filters = mode === "bookmarks"
       ? { ids }
-      : { exam, subject, unit, difficulty, qtype };
+      : { exam, subject, unit, topic, difficulty, qtype };
     const d = await api.listQuestions({ ...filters, limit: PAGE_SIZE, offset });
     const prog = user ? (await api.qbProgress(d.questions.map((q) => q.id))).progress : {};
     return { ...d, prog };
-  }, [mode, exam, subject, unit, difficulty, qtype, user]);
+  }, [mode, exam, subject, unit, topic, difficulty, qtype, user]);
 
   useEffect(() => {
     let active = true;
@@ -139,13 +204,17 @@ function Practice({ mode }) {
         if (!active) return;
         setQuestions(d.questions); setCount(d.count); setProgress(d.prog);
         if (mode === "topic") {
-          const t = (await api.qbTopicSummary()).topics.find((x) => x.exam === exam && x.subject === subject && x.unit === unit);
-          if (active) setTopicInfo(t || null);
+          const rows = (await api.qbTopicSummary()).topics.filter((x) => x.exam === exam && x.subject === subject && x.unit === unit);
+          const u = groupUnits(rows)[0];
+          if (active) {
+            setUnitTopics(u ? u.topics : []);
+            setTopicInfo(topic ? (u?.topics.find((t) => t.topic === topic) || null) : (u || null));
+          }
         }
       } catch (e) { if (active) setError(e.message); }
     })();
     return () => { active = false; };
-  }, [fetchPage, mode, exam, subject, unit]);
+  }, [fetchPage, mode, exam, subject, unit, topic]);
 
   async function loadMore() {
     setLoadingMore(true);
@@ -157,14 +226,26 @@ function Practice({ mode }) {
     } catch (e) { setError(e.message); } finally { setLoadingMore(false); }
   }
 
-  const back = () => setParams(new URLSearchParams(), { replace: false });
+  const back = () => setParams(by === "topic" ? { by: "topic" } : {}, { replace: false });
+  const pickTopic = (t) => setParams(practiceLink({ exam, subject, unit, topic: t }, by), { replace: true });
   const hiddenCount = topicInfo ? topicInfo.total - topicInfo.accessible : 0;
 
   return (
     <div className="page page-reading">
-      <button className="back-link link-btn" onClick={back}>← All topics</button>
-      <h1>{mode === "bookmarks" ? "Saved questions" : unit}</h1>
-      {mode === "topic" && <p className="page-sub">{exam} · {subject}</p>}
+      <button className="back-link link-btn" onClick={back}>← Question Bank</button>
+      <h1>{mode === "bookmarks" ? "Saved questions" : topic || unit}</h1>
+      {mode === "topic" && <p className="page-sub">{exam} · {subject}{topic ? ` · ${unit}` : ""}</p>}
+
+      {mode === "topic" && unitTopics.length > 0 && (
+        <div className="exam-tabs qb-topic-tabs" role="tablist" aria-label="Topics in this unit">
+          <button role="tab" aria-selected={!topic} className={!topic ? "active" : ""} onClick={() => pickTopic("")}>All topics</button>
+          {unitTopics.map((t) => (
+            <button key={t.topic} role="tab" aria-selected={topic === t.topic} className={topic === t.topic ? "active" : ""} onClick={() => pickTopic(t.topic)}>
+              {t.topic} <span className="tab-count">{t.total}</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       {mode === "topic" && (
         <div className="toolbar">
@@ -198,7 +279,7 @@ function Practice({ mode }) {
       {hiddenCount > 0 && (
         <div className="locked-inline">
           <Icon name="lock" size={18} />
-          <span>{hiddenCount} more question{hiddenCount === 1 ? "" : "s"} in this topic {hiddenCount === 1 ? "is" : "are"} part of a higher plan.</span>
+          <span>{hiddenCount} more question{hiddenCount === 1 ? "" : "s"} in this {topic ? "topic" : "unit"} {hiddenCount === 1 ? "is" : "are"} part of a higher plan.</span>
           <Link className="btn btn-gold btn-sm" to="/plans">See plans</Link>
         </div>
       )}

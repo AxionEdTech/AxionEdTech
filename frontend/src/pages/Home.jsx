@@ -2,18 +2,12 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api.js";
 import usePlans from "../context/usePlans.jsx";
-import { FEATURED_EXAMS, EXAMS } from "../lib/taxonomy.js";
+import useExams from "../context/useExams.jsx";
 import PlanGrid from "../components/PlanGrid.jsx";
 import NoticeBoard, { UpcomingDates } from "../components/NoticeBoard.jsx";
 import { NoteCard, PaperCard, TestCard } from "../components/Cards.jsx";
 import Icon from "../components/Icon.jsx";
 import OrbitArt from "../components/OrbitArt.jsx";
-
-const EXAM_BLURBS = {
-  "CSIR NET": "Physical Sciences · JRF and lectureship",
-  GATE: "Physics (PH) · M.Tech, PhD and PSU recruitment",
-  JEST: "Physics · PhD and integrated PhD admissions",
-};
 
 const RESOURCES = [
   { to: "/notes", icon: "notes", title: "Study notes", text: "Topic-wise notes in syllabus order, with diagrams and equations.", tag: "Free + premium" },
@@ -45,7 +39,8 @@ export default function Home() {
     return () => { active = false; };
   }, []);
 
-  const otherExams = EXAMS.filter((e) => !FEATURED_EXAMS.includes(e));
+  const { exams, featured } = useExams();
+  const otherExams = exams.filter((e) => !e.featured).map((e) => e.name);
   const latestNotes = [...notes].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 3);
   // Free items first, so the featured row always shows something a visitor can open.
   const featuredTests = [...tests].sort((a, b) => Number(b.min_plan === "free") - Number(a.min_plan === "free")).slice(0, 3);
@@ -56,7 +51,7 @@ export default function Home() {
         <OrbitArt className="hero-orbit" />
         <div className="container hero-grid">
           <div className="hero-copy">
-            <p className="eyebrow light">CSIR NET · GATE · JEST</p>
+            <p className="eyebrow light">{featured.map((e) => e.name).join(" · ")}</p>
             <h1>Physics exam preparation, organised topic by topic.</h1>
             <p className="hero-sub">
               Notes, mock tests, a practice question bank and every previous-year paper —
@@ -77,12 +72,12 @@ export default function Home() {
           <Link to="/exams" className="section-link">All exams <Icon name="arrow" size={16} /></Link>
         </div>
         <div className="grid grid-4">
-          {FEATURED_EXAMS.map((exam) => (
-            <Link key={exam} to={`/exams/${encodeURIComponent(exam)}`} className="card card-hover exam-card">
+          {featured.map((exam) => (
+            <Link key={exam.name} to={`/exams/${encodeURIComponent(exam.name)}`} className="card card-hover exam-card">
               <span className="card-icon lg"><Icon name="exam" size={24} /></span>
-              <h3>{exam}</h3>
-              <p className="card-meta">{EXAM_BLURBS[exam]}</p>
-              <p className="paper-chips"><span>Pattern</span><span>Syllabus</span><span>Cut-offs</span><span>Calendar</span></p>
+              <h3>{exam.name}</h3>
+              {exam.blurb && <p className="card-meta">{exam.blurb}</p>}
+              <p className="section-link">Pattern, syllabus and dates <Icon name="arrow" size={14} /></p>
             </Link>
           ))}
           {otherExams.length > 0 && (

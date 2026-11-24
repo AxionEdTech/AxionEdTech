@@ -2,6 +2,29 @@
 
 Newest first. Entries before v1.1 use the old file locations — see the table under v1.1.
 
+## v1.2 — November 2026: exams list, question-bank topics, finished-test cards
+
+**Database:** run `supabase/migrations/migration_7_question_bank_topics.sql` once (the Admin page
+offers it with a Copy button). Safe to run again. Result row: `true, true`.
+
+### New
+- **Exams are managed in Admin → Exam Info → "Exams on the website"**: add an exam, remove one, move it
+  up/down, give it a short description, and tick *Home page* for the ones shown as big cards on the Home
+  page and in the footer. Saved in site settings (no database update). Removing an exam only stops it
+  being listed — its papers, notes, tests and information stay.
+- The "Information is being added" lines are gone from the Exams page and exam pages.
+- **Question Bank topics**: each question can have a Topic inside its unit (e.g. Mathematical Methods of
+  Physics › Vector Analysis). Set it above the paste box in Admin → Question Bank, or per question with a
+  `Topic:` line. Existing topics are suggested so spellings stay the same; the admin list filters by topic.
+- The Question Bank page has **Subject-wise** and **Topic-wise** views, like Mock Tests. Inside a unit,
+  topic tabs switch between "All topics" and one topic, with counts.
+- **Mock test cards remember your attempts**: a submitted test shows its score with **View result** and
+  **Reset** (start again — the earlier result stays in My Results); an unfinished one shows **Resume test**.
+
+### Fixed
+- Dashboard → "Recently viewed notes" kept showing deleted notes. The list is now checked against the
+  notes that exist (and picks up renamed titles); opening a deleted note's old link also removes it.
+
 ## v1.1 — November 2026: phone number at sign-up, bug fixes, tidier layout
 
 **Database:** run `supabase/migrations/migration_6_phone_number_and_fixes.sql` once (the Admin page

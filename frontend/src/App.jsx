@@ -19,6 +19,7 @@ import MyResults from "./pages/MyResults.jsx";
 const AdminPanel = lazy(() => import("./pages/AdminPanel.jsx"));
 import Plans from "./pages/Plans.jsx";
 import { PlansProvider } from "./context/usePlans.jsx";
+import { ExamsProvider } from "./context/useExams.jsx";
 const Subscribe = lazy(() => import("./pages/Subscribe.jsx"));
 import Papers from "./pages/Papers.jsx";
 const PaperView = lazy(() => import("./pages/PaperView.jsx"));
@@ -54,6 +55,7 @@ export default function App() {
   return (
     <AuthProvider>
       <PlansProvider>
+      <ExamsProvider>
       <Suspense fallback={<div className="page-loading">Loading…</div>}>
       <Routes>
         <Route path="/" element={<HomeGate />} />
@@ -94,6 +96,7 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       </Suspense>
+      </ExamsProvider>
       </PlansProvider>
     </AuthProvider>
   );

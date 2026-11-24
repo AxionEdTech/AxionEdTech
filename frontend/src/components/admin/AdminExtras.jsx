@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { api } from "../../lib/api.js";
-import { EXAMS, EXAM_SECTIONS, SUBJECTS, UNITS, QUESTION_TYPES } from "../../lib/taxonomy.js";
+import { EXAM_SECTIONS, SUBJECTS, UNITS, QUESTION_TYPES } from "../../lib/taxonomy.js";
+import useExams from "../../context/useExams.jsx";
+import { EXAMS_SETTING_KEY, examsToSetting, normalizeExams } from "../../lib/exams.js";
 import { PERIODS, PLAN_IDS, effectivePlan, formatPrice, planName } from "../../lib/plans.js";
 import { parseDriveFileId } from "../../lib/drivePdf.js";
 import { safeUrl } from "../../lib/links.js";
@@ -14,7 +16,8 @@ const checkStyle = { flexDirection: "row", alignItems: "center", gap: 8 };
 const fmtDate = (d) => new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 
 function ExamList() {
-  return <datalist id="exam-list-x">{EXAMS.map((e) => <option key={e} value={e} />)}</datalist>;
+  const { names } = useExams();
+  return <datalist id="exam-list-x">{names.map((e) => <option key={e} value={e} />)}</datalist>;
 }
 
 // "Which plan unlocks this?" — used by notes, mock tests and questions.
@@ -295,6 +298,86 @@ export function PapersManager({ onDone }) {
 // ============================================================================
 // Exam information
 // ============================================================================
+// ----------------------------------------------------------------------------
+// "Exams on the website": add, remove, reorder and describe the exams.
+// Saved in site settings (no database update needed). Removing an exam only
+// hides it from the Exams page, Home page and menus — its papers, notes,
+// tests and information entries are kept.
+// ----------------------------------------------------------------------------
+function ExamsListEditor({ onDone }) {
+  const { exams, refresh } = useExams();
+  const [rows, setRows] = useState(exams);
+  const [newName, setNewName] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  useEffect(() => { if (!dirty) setRows(exams); }, [exams, dirty]);
+
+  const change = (next) => { setRows(next); setDirty(true); };
+  const setRow = (i, k, v) => change(rows.map((r, j) => (j === i ? { ...r, [k]: v } : r)));
+  const move = (i, d) => {
+    const j = i + d;
+    if (j < 0 || j >= rows.length) return;
+    const next = [...rows];
+    [next[i], next[j]] = [next[j], next[i]];
+    change(next);
+  };
+  const removeRow = (i) => {
+    if (!window.confirm(`Remove "${rows[i].name}" from the website's exam list?\n\nIts papers, notes, tests and information are NOT deleted — the exam just stops being listed. Press "Save exam list" afterwards.`)) return;
+    change(rows.filter((_, j) => j !== i));
+  };
+  function add(e) {
+    e.preventDefault();
+    const name = newName.trim().replace(/\s+/g, " ");
+    if (!name) return;
+    if (rows.some((r) => r.name.toLowerCase() === name.toLowerCase())) { onDone(`"${name}" is already in the list.`); return; }
+    change([...rows, { name, blurb: "", featured: false }]);
+    setNewName("");
+  }
+  async function save() {
+    const clean = normalizeExams(rows);
+    if (!clean.length) { onDone("Keep at least one exam in the list."); return; }
+    setBusy(true);
+    try {
+      await api.saveSettings({ [EXAMS_SETTING_KEY]: examsToSetting(clean) });
+      await refresh();
+      setDirty(false);
+      onDone("Exam list saved — the Exams page, Home page and menus now use it.");
+    } catch (err) { onDone(err.message); } finally { setBusy(false); }
+  }
+
+  return (
+    <section className="card exams-editor">
+      <div className="admin-subhead" style={{ marginTop: 0 }}>
+        <h3>Exams on the website</h3>
+        <div className="admin-subhead-tools">
+          {dirty && <span className="field-hint">Unsaved changes</span>}
+          {dirty && <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setRows(exams); setDirty(false); }}>Undo</button>}
+          <button type="button" className="btn btn-primary btn-sm" onClick={save} disabled={busy || !dirty}>{busy ? "Saving…" : "Save exam list"}</button>
+        </div>
+      </div>
+      <p className="field-hint">Order here = order on the site. Tick <strong>Home page</strong> for the exams shown as large cards on the Home page and in the footer. The short description appears under the exam's name.</p>
+      <div className="exams-editor-rows">
+        {rows.map((r, i) => (
+          <div key={r.name} className="exams-editor-row">
+            <div className="exams-editor-order">
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => move(i, -1)} disabled={i === 0} aria-label={`Move ${r.name} up`}>↑</button>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => move(i, 1)} disabled={i === rows.length - 1} aria-label={`Move ${r.name} down`}>↓</button>
+            </div>
+            <strong className="exams-editor-name">{r.name}</strong>
+            <input className="exams-editor-blurb" value={r.blurb} maxLength={160} placeholder="Short description, e.g. Physics · PhD admissions" onChange={(e) => setRow(i, "blurb", e.target.value)} aria-label={`Description for ${r.name}`} />
+            <label className="exams-editor-check"><input type="checkbox" checked={r.featured} onChange={(e) => setRow(i, "featured", e.target.checked)} /> Home page</label>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => removeRow(i)}>Remove</button>
+          </div>
+        ))}
+      </div>
+      <form className="exams-editor-add" onSubmit={add}>
+        <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="New exam name, e.g. IIT JAM" maxLength={60} aria-label="New exam name" />
+        <button className="btn btn-ghost btn-sm" disabled={!newName.trim()}>+ Add exam</button>
+      </form>
+    </section>
+  );
+}
+
 export function ExamInfoManager({ onDone }) {
   const blank = { exam: "", section: "pattern", title: "", body: "", sort_order: 0, is_active: true };
   const [items, setItems] = useState(null);
@@ -328,6 +411,8 @@ export function ExamInfoManager({ onDone }) {
 
   return (
     <div>
+      <ExamsListEditor onDone={onDone} />
+      <h3 style={{ marginTop: 28 }}>Information for an exam</h3>
       <ExamList />
       <form className="form" onSubmit={submit}>
         {editingId && <p className="form-note">Editing "{form.title}" — <button type="button" className="link-btn" onClick={() => { setEditingId(null); setForm(blank); }}>cancel</button></p>}
@@ -377,19 +462,27 @@ export function ExamInfoManager({ onDone }) {
 // Question bank
 // ============================================================================
 export function QuestionBankManager({ onDone }) {
-  const [meta, setMeta] = useState({ exam: "", subject: "", unit: "", min_plan: "notes_mock", is_preview: false });
+  const [meta, setMeta] = useState({ exam: "", subject: "", unit: "", topic: "", min_plan: "notes_mock", is_preview: false });
   const [text, setText] = useState(SAMPLE_QB_TEXT);
   const [busy, setBusy] = useState(false);
   const [list, setList] = useState(null);
   const [editing, setEditing] = useState(null); // { id, text, meta }
-  const [filter, setFilter] = useState({ exam: "", subject: "", unit: "" });
+  const [filter, setFilter] = useState({ exam: "", subject: "", unit: "", topic: "" });
+  const [summary, setSummary] = useState([]); // existing exam/subject/unit/topic combinations
   const setM = (k, v) => setMeta((m) => ({ ...m, [k]: v }));
 
   const parsed = useMemo(() => parseQuestionBank(text), [text]);
   const units = UNITS[meta.subject] || [];
+  // Topics already used in a unit, offered as suggestions so spellings stay identical.
+  const topicsIn = (subject, unit) => [...new Set(summary
+    .filter((t) => t.subject === subject && t.unit === unit && t.topic).map((t) => t.topic))].sort();
+  const topicsSupported = summary.length === 0 || summary.some((t) => "topic" in t);
 
-  const refresh = () => api.adminListQuestions(filter).then((d) => setList(d.questions)).catch((e) => onDone(e.message));
-  useEffect(() => { refresh(); }, [filter.exam, filter.subject, filter.unit]); // eslint-disable-line react-hooks/exhaustive-deps
+  const refresh = () => {
+    api.adminListQuestions(filter).then((d) => setList(d.questions)).catch((e) => onDone(e.message));
+    api.qbTopicSummary().then((d) => setSummary(d.topics || [])).catch(() => {});
+  };
+  useEffect(() => { refresh(); }, [filter.exam, filter.subject, filter.unit, filter.topic]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function save(e) {
     e.preventDefault();
@@ -398,7 +491,7 @@ export function QuestionBankManager({ onDone }) {
     setBusy(true);
     try {
       const { count } = await api.createQuestions(parsed.questions, meta);
-      onDone(`${count} question${count === 1 ? "" : "s"} added to ${meta.unit}.`);
+      onDone(`${count} question${count === 1 ? "" : "s"} added to ${meta.unit}${meta.topic.trim() ? ` › ${meta.topic.trim()}` : ""}.`);
       setText(""); refresh();
     } catch (err) { onDone(err.message); } finally { setBusy(false); }
   }
@@ -428,8 +521,18 @@ export function QuestionBankManager({ onDone }) {
         <div className="form-row">
           <label>Exam<input list="exam-list-x" required value={m.exam} onChange={(e) => setE("exam", e.target.value)} /></label>
           <label>Subject<select value={m.subject} onChange={(e) => setE("subject", e.target.value)}>{SUBJECTS.map((s) => <option key={s}>{s}</option>)}</select></label>
-          <label>Topic<input value={m.unit} onChange={(e) => setE("unit", e.target.value)} /></label>
+          <label>Unit
+            <select value={m.unit} onChange={(e) => setE("unit", e.target.value)}>
+              {[...new Set([m.unit, ...(UNITS[m.subject] || [])])].filter(Boolean).map((u) => <option key={u}>{u}</option>)}
+            </select>
+          </label>
         </div>
+        {m.topic !== undefined && (
+          <label>Topic (optional)
+            <input list="qb-topic-edit" value={m.topic} maxLength={120} placeholder="e.g. Vector Analysis" onChange={(e) => setE("topic", e.target.value)} />
+            <datalist id="qb-topic-edit">{topicsIn(m.subject, m.unit).map((t) => <option key={t} value={t} />)}</datalist>
+          </label>
+        )}
         <PlanSelect value={m.min_plan} onChange={(v) => setE("min_plan", v)} />
         <label style={checkStyle}><input type="checkbox" style={{ width: "auto" }} checked={m.is_preview} disabled={m.min_plan !== "free"} onChange={(e) => setE("is_preview", e.target.checked)} /> Show to visitors without logging in</label>
         <textarea rows={12} value={editing.text} onChange={(e) => setEditing((s) => ({ ...s, text: e.target.value }))} />
@@ -451,12 +554,20 @@ export function QuestionBankManager({ onDone }) {
             </select>
           </label>
         </div>
-        <label>Topic
-          <select required value={meta.unit} onChange={(e) => setM("unit", e.target.value)} disabled={!meta.subject}>
-            <option value="" disabled>{meta.subject ? "Select topic…" : "Choose a subject first"}</option>
-            {units.map((u) => <option key={u}>{u}</option>)}
-          </select>
-        </label>
+        <div className="form-row">
+          <label>Unit
+            <select required value={meta.unit} onChange={(e) => setM("unit", e.target.value)} disabled={!meta.subject}>
+              <option value="" disabled>{meta.subject ? "Select unit…" : "Choose a subject first"}</option>
+              {units.map((u) => <option key={u}>{u}</option>)}
+            </select>
+          </label>
+          <label>Topic (optional)
+            <input list="qb-topic-add" value={meta.topic} maxLength={120} disabled={!meta.unit || !topicsSupported}
+              placeholder={topicsSupported ? "e.g. Vector Analysis" : "Run database update 7 first"} onChange={(e) => setM("topic", e.target.value)} />
+            <datalist id="qb-topic-add">{topicsIn(meta.subject, meta.unit).map((t) => <option key={t} value={t} />)}</datalist>
+          </label>
+        </div>
+        <p className="field-hint">Topic groups questions inside a unit, e.g. Unit "Mathematical Methods of Physics" › Topic "Vector Analysis". Students can practise a whole unit or one topic. Pick an existing topic from the suggestions to keep the spelling identical.</p>
         <div className="form-row">
           <PlanSelect value={meta.min_plan} onChange={(v) => setM("min_plan", v)} label="Available from plan (applies to every question below)" />
           <label style={checkStyle}><input type="checkbox" style={{ width: "auto" }} checked={meta.is_preview} disabled={meta.min_plan !== "free"} onChange={(e) => setM("is_preview", e.target.checked)} /> Show to visitors without logging in</label>
@@ -468,7 +579,7 @@ export function QuestionBankManager({ onDone }) {
         <p className="field-hint">
           One question after another, separated by a line with <code>---</code>. Start each with <code>Q:</code>, list options as <code>A) …</code>,
           then <code>Answer:</code> (<code>B</code> for MCQ, <code>A, C</code> for multiple-select, a number for numerical). Optional:
-          <code> Difficulty:</code> easy/medium/hard, <code>Source:</code>, <code>Tolerance:</code> (numerical), <code>Explanation:</code>. Images, tables and $maths$ work as in notes.
+          <code> Difficulty:</code> easy/medium/hard, <code>Source:</code>, <code>Tolerance:</code> (numerical), <code>Topic:</code> (overrides the topic above), <code>Explanation:</code>. Images, tables and $maths$ work as in notes.
         </p>
         <div className={parsed.errors.length ? "form-error" : "form-note"}>
           {parsed.errors.length
@@ -481,11 +592,14 @@ export function QuestionBankManager({ onDone }) {
       <h3 style={{ marginTop: 28 }}>Existing questions</h3>
       <div className="form-row">
         <input list="exam-list-x" placeholder="Filter by exam" value={filter.exam} onChange={(e) => setFilter((f) => ({ ...f, exam: e.target.value }))} />
-        <select value={filter.subject} onChange={(e) => setFilter({ exam: filter.exam, subject: e.target.value, unit: "" })}>
+        <select value={filter.subject} onChange={(e) => setFilter({ exam: filter.exam, subject: e.target.value, unit: "", topic: "" })}>
           <option value="">All subjects</option>{SUBJECTS.map((s) => <option key={s}>{s}</option>)}
         </select>
-        <select value={filter.unit} onChange={(e) => setFilter((f) => ({ ...f, unit: e.target.value }))} disabled={!filter.subject}>
-          <option value="">All topics</option>{(UNITS[filter.subject] || []).map((u) => <option key={u}>{u}</option>)}
+        <select value={filter.unit} onChange={(e) => setFilter((f) => ({ ...f, unit: e.target.value, topic: "" }))} disabled={!filter.subject}>
+          <option value="">All units</option>{(UNITS[filter.subject] || []).map((u) => <option key={u}>{u}</option>)}
+        </select>
+        <select value={filter.topic} onChange={(e) => setFilter((f) => ({ ...f, topic: e.target.value }))} disabled={!filter.unit || topicsIn(filter.subject, filter.unit).length === 0}>
+          <option value="">All topics</option>{topicsIn(filter.subject, filter.unit).map((t) => <option key={t}>{t}</option>)}
         </select>
       </div>
       {!list && <p className="page-loading">Loading…</p>}
@@ -496,12 +610,12 @@ export function QuestionBankManager({ onDone }) {
             <div style={{ minWidth: 0 }}>
               <strong style={{ display: "block", maxWidth: 560, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{q.content.replace(/\s+/g, " ")}</strong>
               <span className="admin-list-meta">
-                {q.exam} · {q.unit} · {QUESTION_TYPES.find((t) => t.id === q.qtype)?.label} · {q.difficulty} · {q.min_plan === "free" ? "Free" : planName(q.min_plan)}{q.is_preview ? " · Preview" : ""}
+                {q.exam} · {q.unit}{q.topic ? ` › ${q.topic}` : ""} · {QUESTION_TYPES.find((t) => t.id === q.qtype)?.label} · {q.difficulty} · {q.min_plan === "free" ? "Free" : planName(q.min_plan)}{q.is_preview ? " · Preview" : ""}
                 {q.answer ? "" : " · NO ANSWER KEY"}
               </span>
             </div>
             <div className="admin-list-actions">
-              <button className="btn btn-ghost btn-sm" onClick={() => setEditing({ id: q.id, text: questionToText(q, q.answer), meta: { exam: q.exam, subject: q.subject, unit: q.unit, min_plan: q.min_plan, is_preview: q.is_preview } })}>Edit</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => setEditing({ id: q.id, text: questionToText(q, q.answer), meta: { exam: q.exam, subject: q.subject, unit: q.unit, topic: "topic" in q ? (q.topic || "") : undefined, min_plan: q.min_plan, is_preview: q.is_preview } })}>Edit</button>
               <button className="btn btn-ghost btn-sm" onClick={() => remove(q)}>Delete</button>
             </div>
           </div>
@@ -696,6 +810,7 @@ export function DownloadsManager({ onDone }) {
 // ============================================================================
 export function NotesPlanBulk({ onDone }) {
   usePlanNames();
+  const { names: examNames } = useExams();
   const [open, setOpen] = useState(false);
   const [f, setF] = useState({ exam: "", subject: "", unit: "", plan: "notes_mock" });
   const [busy, setBusy] = useState(false);
@@ -725,7 +840,7 @@ export function NotesPlanBulk({ onDone }) {
         <p className="field-hint">Choose a subject (and optionally one topic) and every note in it is moved to the plan you pick. You can still change a single note afterwards from its own Edit screen.</p>
         <div className="form-row">
           <label>Exam (optional)
-            <select value={f.exam} onChange={(e) => set("exam", e.target.value)}><option value="">Any exam</option>{EXAMS.map((x) => <option key={x}>{x}</option>)}</select>
+            <select value={f.exam} onChange={(e) => set("exam", e.target.value)}><option value="">Any exam</option>{examNames.map((x) => <option key={x}>{x}</option>)}</select>
           </label>
           <label>Subject
             <select value={f.subject} onChange={(e) => { set("subject", e.target.value); set("unit", ""); }}>

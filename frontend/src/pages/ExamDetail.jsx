@@ -4,6 +4,7 @@ import { api } from "../lib/api.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import { EXAM_SECTIONS } from "../lib/taxonomy.js";
 import RichContent from "../components/RichContent.jsx";
+import useExams from "../context/useExams.jsx";
 import Icon from "../components/Icon.jsx";
 
 export default function ExamDetail() {
@@ -14,6 +15,8 @@ export default function ExamDetail() {
   const [error, setError] = useState("");
   const [params, setParams] = useSearchParams();
   const { user } = useAuth();
+  const { exams } = useExams();
+  const blurb = exams.find((e) => e.name === exam)?.blurb;
 
   useEffect(() => {
     setItems(null);
@@ -35,6 +38,7 @@ export default function ExamDetail() {
     <div className="page page-wide">
       <Link to="/exams" className="back-link">← All exams</Link>
       <h1>{exam}</h1>
+      {blurb && <p className="page-sub">{blurb}</p>}
 
       <div className="quick-links">
         <Link to={`/papers?exam=${enc}`}><Icon name="papers" size={16} /> Previous Year Papers</Link>
@@ -46,11 +50,10 @@ export default function ExamDetail() {
       {error && <div className="form-error">{error}</div>}
 
       {available.length === 0 ? (
-        <div className="locked-card">
-          <h2>Information for {exam} is being added</h2>
-          <p className="page-sub">Previous papers and practice material are already available from the links above.</p>
-          {user?.role === "admin" && <Link className="btn btn-gold" to="/admin">Add it in Admin → Exam Info</Link>}
-        </div>
+        user?.role === "admin" && (
+          <p className="form-note">Only you see this: add the pattern, syllabus, cut-offs and so on in{" "}
+            <Link to="/admin?tab=examinfo">Admin → Exam Info</Link>.</p>
+        )
       ) : (
         <>
           <div className="exam-tabs section-tabs" role="tablist">

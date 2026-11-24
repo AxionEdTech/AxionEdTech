@@ -1,4 +1,4 @@
-# Axion EdTech — Exam Prep Portal (v1.1)
+# Axion EdTech — Exam Prep Portal (v1.2)
 
 Physics exam preparation site (CSIR NET, GATE, JEST …) — notes, mock tests, a
 question bank, previous-year papers, plans and subscriptions.
@@ -12,16 +12,16 @@ There is **no server for you to manage**. Two free services do everything:
 
 ## Updating the live site to this version
 
-1. **Database first.** Log in to the site as admin and open **Admin**. A yellow box says
-   **"Database update 6 needed"**. Click **Copy the SQL**, then **Open this site's Supabase
-   SQL Editor**, paste, press **Run**. The result row should read **true, true, true**.
-   Back on the Admin page, click **Check again** — it now says *Database is up to date*.
-   (The same SQL is in `supabase/migrations/migration_6_phone_number_and_fixes.sql`.)
+1. **Database first.** Log in to the site as admin and open **Admin**. If a yellow box says
+   **"Database update N needed"**, click **Copy the SQL**, then **Open this site's Supabase
+   SQL Editor**, paste, press **Run**, and check the result row shows all **true**.
+   Back on the Admin page, click **Check again** — repeat until it says *Database is up to date*.
+   (v1.2 needs update 7: `supabase/migrations/migration_7_question_bank_topics.sql`.)
 2. **Then the website.** Replace your project folder with this one, and in GitHub Desktop
    **Commit** and **Push**. Vercel redeploys on its own within a minute or two.
 
-Doing them in the other order is harmless: sign-ups keep working, and phone numbers typed
-before step 1 are copied across when you run it.
+Doing them in the other order is harmless: the site keeps working; only the new feature
+(question-bank topics) waits until the update is run.
 
 ---
 
@@ -33,7 +33,7 @@ AxionEdTech/
 ├── CHANGELOG.md             ← what changed in each version
 ├── supabase/                ← the database (run in Supabase → SQL Editor)
 │   ├── fresh_install_all.sql    builds everything on a NEW, empty project
-│   ├── migrations/              the same thing in steps 1–6 (for existing sites)
+│   ├── migrations/              the same thing in steps 1–7 (for existing sites)
 │   └── tools/                   reset / re-create profiles (rarely needed)
 └── frontend/                ← the website (Vercel's "Root Directory")
     ├── index.html               page title, description, fonts
@@ -48,7 +48,7 @@ AxionEdTech/
         ├── lib/                 plain helpers: talking to Supabase (api.js), plans,
         │                        exam lists, text/maths formatting, parsers
         ├── styles/              base.css (basics) and site.css (look of the site)
-        └── sql/                 copies of migrations 4–6 used by the Admin update box
+        └── sql/                 copies of migrations 4–7 used by the Admin update box
 ```
 
 ## Where to change what
@@ -58,7 +58,9 @@ AxionEdTech/
 | Add notes, tests, questions, papers, updates, prices        | **Admin page** on the site (no code) |
 | Change contact details, social links, payment instructions  | **Admin → Settings & Social** |
 | See students and their phone numbers, grant/revoke plans    | **Admin → Students & Subscriptions** (search, or **Download list (CSV)**) |
-| Add an exam, subject or unit to the dropdowns / their order | `frontend/src/lib/taxonomy.js` |
+| Add, remove or reorder exams; choose which show on Home     | **Admin → Exam Info → Exams on the website** |
+| Group question-bank questions into topics (Vector Analysis…) | **Admin → Question Bank** → *Topic*, or a `Topic:` line per question |
+| Add a subject or unit to the dropdowns / their order        | `frontend/src/lib/taxonomy.js` |
 | Change what each plan includes (the feature list)           | `frontend/src/lib/plans.js` → `FEATURES` |
 | Change the CSIR NET / GATE marking pattern presets          | `frontend/src/lib/examPatterns.js` |
 | Change the menu at the top                                  | `frontend/src/components/Navbar.jsx` → `LINKS` / `MORE` |

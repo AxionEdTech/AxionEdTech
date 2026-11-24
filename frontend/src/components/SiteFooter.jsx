@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api.js";
 import { normalizeImageSrc } from "../lib/driveImage.js";
-import { FEATURED_EXAMS } from "../lib/taxonomy.js";
+import useExams from "../context/useExams.jsx";
 import { socialLinks } from "../lib/social.js";
 import { safeUrl } from "../lib/links.js";
 import Icon from "./Icon.jsx";
@@ -13,6 +13,7 @@ import Icon from "./Icon.jsx";
 export default function SiteFooter() {
   const [authors, setAuthors] = useState(null);
   const [settings, setSettings] = useState({});
+  const { featured } = useExams();
 
   useEffect(() => {
     let active = true;
@@ -48,7 +49,7 @@ export default function SiteFooter() {
         </nav>
         <nav aria-label="Exams">
           <h4>Exams</h4>
-          {FEATURED_EXAMS.map((e) => <Link key={e} to={`/exams/${encodeURIComponent(e)}`}>{e}</Link>)}
+          {featured.map((e) => <Link key={e.name} to={`/exams/${encodeURIComponent(e.name)}`}>{e.name}</Link>)}
           <Link to="/exams">All exams</Link>
         </nav>
         <nav aria-label="Axion EdTech">

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { api } from "../lib/api.js";
 import { examRank, TEST_KINDS } from "../lib/taxonomy.js";
 import { TestCard } from "../components/Cards.jsx";
+import { useAuth } from "../context/AuthContext.jsx";
 
 export default function MockTestList() {
   const [tests, setTests] = useState(null);
@@ -10,11 +11,30 @@ export default function MockTestList() {
   const [starting, setStarting] = useState(null);
   const [exam, setExam] = useState("");
   const [kind, setKind] = useState("");
+  const [attempts, setAttempts] = useState([]);
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     api.listTests().then((d) => setTests(d.tests)).catch((e) => setError(e.message));
   }, []);
+
+  // This student's attempts, so finished tests show their result instead of "Start".
+  useEffect(() => {
+    if (!user) { setAttempts([]); return; }
+    api.myAttempts().then((d) => setAttempts(d.attempts)).catch(() => setAttempts([]));
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // test id → { result: latest submitted attempt, inProgress }
+  const mine = useMemo(() => {
+    const map = {};
+    for (const a of attempts) { // newest first
+      const m = map[a.test_id] || (map[a.test_id] = { result: null, inProgress: false });
+      if (a.submitted_at) { if (!m.result) m.result = a; }
+      else m.inProgress = true;
+    }
+    return map;
+  }, [attempts]);
 
   const exams = useMemo(
     () => (tests ? [...new Set(tests.map((t) => t.exam || "General"))].sort((a, b) => examRank(a) - examRank(b)) : []),
@@ -65,7 +85,7 @@ export default function MockTestList() {
           </div>
 
           {shown.length === 0 && <p className="empty-state">No tests match these filters yet.</p>}
-          <div className="grid grid-3">{shown.map((t) => <TestCard key={t.id} t={t} onStart={start} starting={starting} />)}</div>
+          <div className="grid grid-3">{shown.map((t) => <TestCard key={t.id} t={t} onStart={start} starting={starting} mine={mine[t.id]} />)}</div>
         </>
       )}
     </div>

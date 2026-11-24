@@ -1,7 +1,8 @@
 // Central controlled taxonomy for the whole portal.
-// Editing this file is the ONLY place you change the list/order of exams,
-// subjects and units. Admin dropdowns and the public grouping/ordering all
-// read from here, so section names can never drift apart from typos.
+// Editing this file is where you change the list/order of subjects and units.
+// Admin dropdowns and the public grouping/ordering all read from here, so
+// section names can never drift apart from typos. (The list of exams is
+// edited on the Admin page instead — see lib/exams.js.)
 
 export const EXAMS = ["CSIR NET", "GATE", "JEST", "TIFR", "GATE PH", "DU", "HCU", "BHU"];
 
@@ -56,8 +57,14 @@ export function orderIndex(list, value) {
 
 // Sort helpers used by the public pages so display order follows the taxonomy,
 // then a sensible secondary key.
+// Exams sort in the order of the admin-edited exam list (Admin → Exam Info →
+// "Exams on the website"); setExamOrder() is called once that list loads.
+let examOrder = EXAMS;
+export function setExamOrder(names) {
+  if (Array.isArray(names) && names.length) examOrder = names;
+}
 export function examRank(exam) {
-  return orderIndex(EXAMS, exam || "General");
+  return orderIndex(examOrder, exam || "General");
 }
 export function subjectRank(subject) {
   return orderIndex(SUBJECTS, subject || "General");
@@ -71,10 +78,9 @@ export function sessionRank(session) {
   return session ? orderIndex(SESSIONS, session) : -1;
 }
 
-// Exams shown as large cards on the Home page and the Exams hub, in order.
-// Any other exam appears on the hub automatically once it has information
-// entered for it (Admin → Exam Info).
-export const FEATURED_EXAMS = ["CSIR NET", "GATE", "JEST"];
+// The exams shown on the site are now edited in Admin → Exam Info → "Exams on the
+// website" (see lib/exams.js and context/useExams.jsx). EXAMS above is only the
+// starting list used until that is saved.
 
 // Sections of the Exams hub, in the order they appear as tabs.
 export const EXAM_SECTIONS = [

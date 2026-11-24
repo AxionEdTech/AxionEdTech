@@ -477,3 +477,35 @@ html { scroll-padding-top: 88px; }
 
 /* Mock test: warning shown when an answer hasn't reached the server yet */
 .exam-unsaved { font-size: .8rem; font-weight: 600; color: var(--warn); background: var(--warn-soft); border-radius: 6px; padding: 5px 10px; }
+
+/* Admin → Exam Info → "Exams on the website" */
+.exams-editor { padding: 18px 20px; }
+.exams-editor-rows { display: grid; gap: 8px; margin: 12px 0; }
+.exams-editor-row { display: grid; grid-template-columns: auto minmax(110px, 160px) 1fr auto auto; gap: 10px; align-items: center; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--paper); }
+.exams-editor-order { display: flex; gap: 4px; }
+.exams-editor-order .btn { padding: 4px 9px; }
+.exams-editor-name { color: var(--navy); overflow-wrap: anywhere; }
+.exams-editor-blurb, .exams-editor-add input { margin: 0; min-width: 0; padding: 9px 12px; font: inherit; font-size: .92rem; color: var(--ink); background: var(--white); border: 1px solid var(--border); border-radius: 8px; }
+.exams-editor-blurb:focus, .exams-editor-add input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.exams-editor-check { display: flex; flex-direction: row; align-items: center; gap: 6px; margin: 0; font-size: .88rem; white-space: nowrap; }
+.exams-editor-check input { width: auto; margin: 0; }
+.exams-editor-add { display: flex; gap: 8px; flex-wrap: wrap; }
+.exams-editor-add input { flex: 1 1 220px; }
+@media (max-width: 760px) {
+  .exams-editor-row { grid-template-columns: auto 1fr; }
+  .exams-editor-blurb { grid-column: 1 / -1; }
+}
+
+/* Question Bank: Subject-wise / Topic-wise views */
+.toolbar-right { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.qb-unit-group { margin: 26px 0 8px; }
+.qb-unit-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.qb-unit-head h2 { font-size: 1.2rem; margin: 0; }
+.topic-tile-all { background: var(--paper); border-style: dashed; }
+.qb-topic-tabs { flex-wrap: wrap; margin: 6px 0 14px; }
+.tab-count { display: inline-block; min-width: 1.6em; padding: 0 6px; margin-left: 4px; font-size: .75rem; font-weight: 600; border-radius: 999px; background: var(--accent-soft); color: var(--navy); }
+
+/* Mock test card after it has been submitted */
+.test-last-score { display: flex; align-items: center; gap: 6px; margin: 0 0 10px; font-size: .85rem; font-weight: 600; color: var(--good, #15803d); }
+.card-action-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.card.is-done { border-color: color-mix(in srgb, var(--good, #15803d) 35%, var(--border)); }

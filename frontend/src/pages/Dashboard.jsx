@@ -5,7 +5,7 @@ import { useAuth } from "../context/AuthContext.jsx";
 import usePlans from "../context/usePlans.jsx";
 import { planName, PLAN_IDS, daysLeft, effectivePlan, formatPrice, planRank } from "../lib/plans.js";
 import { summarizeAttempts, sparkPoints, attemptPercent } from "../lib/analytics.js";
-import { getRecent } from "../lib/recent.js";
+import { getRecent, syncRecent } from "../lib/recent.js";
 import NoticeBoard from "../components/NoticeBoard.jsx";
 import Icon from "../components/Icon.jsx";
 
@@ -23,11 +23,13 @@ export default function Dashboard() {
   const [qb, setQb] = useState(null);
   const plan = effectivePlan(user);
   const left = daysLeft(user?.plan_expires_at);
-  const recent = useMemo(() => getRecent(), []);
+  const [recent, setRecent] = useState(() => getRecent());
 
   useEffect(() => {
     api.myAttempts().then((d) => setAttempts(d.attempts)).catch(() => setAttempts([]));
     api.qbStats().then(setQb).catch(() => setQb({ attempted: 0, correct: 0, bookmarked: 0 }));
+    // Drop notes that have since been deleted (and pick up renamed titles).
+    if (getRecent().length) api.listNotes().then((d) => setRecent(syncRecent(d.notes))).catch(() => {});
   }, []);
 
   const stats = useMemo(() => summarizeAttempts(attempts || []), [attempts]);

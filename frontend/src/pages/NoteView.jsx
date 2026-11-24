@@ -3,7 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { api } from "../lib/api.js";
 import RichContent from "../components/RichContent.jsx";
 import UpgradeNotice from "../components/UpgradeNotice.jsx";
-import { pushRecent } from "../lib/recent.js";
+import { pushRecent, removeRecent } from "../lib/recent.js";
 
 export default function NoteView() {
   const { id } = useParams();
@@ -14,8 +14,12 @@ export default function NoteView() {
     setData(null);
     api.getNote(id)
       .then(async (d) => {
-        if (d.restricted) d.meta = await api.noteMeta(id).catch(() => null);
-        else pushRecent(d.note);
+        if (d.restricted) {
+          d.meta = await api.noteMeta(id).catch(() => undefined);
+          if (d.meta === null) removeRecent(id); // the note no longer exists
+        } else {
+          pushRecent(d.note);
+        }
         setData(d);
       })
       .catch((e) => setError(e.message));

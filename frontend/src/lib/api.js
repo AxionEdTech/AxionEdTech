@@ -359,6 +359,15 @@ export const api = {
     return { state: "unknown", detail: msg };
   },
 
+  // Is migration 7 (question bank topics) installed? Reads the new column.
+  async qbTopicsDatabaseStatus() {
+    const { error } = await supabase.from("qb_questions").select("topic").limit(1);
+    const msg = String(error?.message || "");
+    if (!error) return { state: "installed" };
+    if (/topic/i.test(msg) && /(does not exist|could not find|schema cache)/i.test(msg)) return { state: "missing" };
+    return { state: "unknown", detail: msg };
+  },
+
   // Is migration 6 (phone number + fixes) installed? Reads the new column.
   async phoneDatabaseStatus() {
     const { error } = await supabase.from("profiles").select("phone").limit(1);
@@ -529,13 +538,17 @@ export const api = {
 
   // Answers are never included here — they come back from checkAnswer() only
   // after the student has answered.
-  async listQuestions({ exam, subject, unit, difficulty, qtype, ids, limit = 10, offset = 0 } = {}) {
+  // `topic`: a topic name, or "" for every question in the unit. (qb_questions
+  // holds no answers, so selecting every column is safe; it also keeps working
+  // on databases from before migration 7, which have no topic column.)
+  async listQuestions({ exam, subject, unit, topic, difficulty, qtype, ids, limit = 10, offset = 0 } = {}) {
     let q = supabase.from("qb_questions")
-      .select("id, exam, subject, unit, qtype, difficulty, content, options, source, min_plan, is_preview", { count: "exact" })
+      .select("*", { count: "exact" })
       .order("id").range(offset, offset + limit - 1);
     if (exam) q = q.eq("exam", exam);
     if (subject) q = q.eq("subject", subject);
     if (unit) q = q.eq("unit", unit);
+    if (topic) q = q.eq("topic", topic);
     if (difficulty) q = q.eq("difficulty", difficulty);
     if (qtype) q = q.eq("qtype", qtype);
     if (ids) q = q.in("id", ids.length ? ids : [-1]);
@@ -578,12 +591,13 @@ export const api = {
   },
 
   // Admin: questions together with their answer keys.
-  async adminListQuestions({ exam, subject, unit } = {}) {
+  async adminListQuestions({ exam, subject, unit, topic } = {}) {
     let q = supabase.from("qb_questions").select("*, qb_answers(answer_key, nat_tolerance, explanation)")
       .order("id", { ascending: false }).limit(300);
     if (exam) q = q.eq("exam", exam);
     if (subject) q = q.eq("subject", subject);
     if (unit) q = q.eq("unit", unit);
+    if (topic) q = q.eq("topic", topic);
     const { data, error } = await q;
     if (error) throw new Error(error.message);
     const questions = data.map((r) => {
@@ -594,13 +608,17 @@ export const api = {
     return { questions };
   },
 
-  // `items` come from parseQuestionBank(); `defaults` = { exam, subject, unit, min_plan, is_preview }.
+  // `items` come from parseQuestionBank(); `defaults` = { exam, subject, unit, topic, min_plan, is_preview }.
+  // A "Topic:" line on a question beats the topic chosen above the box.
   async createQuestions(items, defaults) {
     const premium = (defaults.min_plan || "free") !== "free";
+    const topicOf = (it) => (it.topic || defaults.topic || "").trim() || null;
+    const withTopics = items.some(topicOf); // only send "topic" when used (needs migration 7)
     const rows = items.map((it) => ({
       exam: defaults.exam, subject: defaults.subject, unit: defaults.unit,
       min_plan: defaults.min_plan || "free", is_preview: premium ? false : !!defaults.is_preview,
       qtype: it.qtype, difficulty: it.difficulty, content: it.content, options: it.options, source: it.source,
+      ...(withTopics ? { topic: topicOf(it) } : {}),
     }));
     const { data, error } = await supabase.from("qb_questions").insert(rows).select("id");
     if (error) throw new Error(error.message);
@@ -624,6 +642,8 @@ export const api = {
     if (meta) {
       const premium = (meta.min_plan || "free") !== "free";
       Object.assign(patch, { exam: meta.exam, subject: meta.subject, unit: meta.unit, min_plan: meta.min_plan || "free", is_preview: premium ? false : !!meta.is_preview });
+      // meta.topic is undefined on databases without the topic column (before migration 7).
+      if (meta.topic !== undefined || item.topic) patch.topic = (item.topic || meta.topic || "").trim() || null;
     }
     const { error } = await supabase.from("qb_questions").update(patch).eq("id", id);
     if (error) throw new Error(error.message);

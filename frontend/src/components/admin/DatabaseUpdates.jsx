@@ -30,6 +30,15 @@ const UPDATES = [
     load: () => import("../../sql/migration_6_phone_number_and_fixes.sql?raw"),
     why: "Phone numbers from the sign-up form are saved to student profiles, \"PYQs (text)\" can be saved again, and answers can't be sent in after a test's time is up.",
     warn: "it only changes rules it re-creates",
+    expect: "true, true, true",
+  },
+  {
+    n: 7,
+    check: () => api.qbTopicsDatabaseStatus(),
+    load: () => import("../../sql/migration_7_question_bank_topics.sql?raw"),
+    why: "The Question Bank gets topics inside each unit (e.g. Vector Analysis), so questions can be added and practised topic by topic.",
+    warn: "it only replaces the question-bank summary it re-creates",
+    expect: "true, true",
   },
 ];
 
@@ -106,7 +115,7 @@ export default function DatabaseUpdates() {
         </li>
         <li>
           Paste the SQL and press <strong>Run</strong>. If Supabase warns about "destructive operations", click{" "}
-          <strong>Run this query</strong> — {u.warn}. The result at the bottom should show <strong>true, true, true</strong>.
+          <strong>Run this query</strong> — {u.warn}. The result at the bottom should show <strong>{u.expect || "true, true, true"}</strong>.
         </li>
         <li>Come back here and <button type="button" className="btn btn-ghost btn-sm" onClick={check}>Check again</button></li>
       </ol>

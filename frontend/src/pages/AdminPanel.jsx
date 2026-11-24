@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api } from "../lib/api.js";
-import { EXAMS, SUBJECTS, UNITS, SESSIONS, TEST_KINDS, UPDATE_CATEGORIES } from "../lib/taxonomy.js";
+import { SUBJECTS, UNITS, SESSIONS, TEST_KINDS, UPDATE_CATEGORIES } from "../lib/taxonomy.js";
+import useExams from "../context/useExams.jsx";
 import { planName } from "../lib/plans.js";
 import { EXAM_PATTERNS, applyPattern, patternSummary } from "../lib/examPatterns.js";
 import { clearAnnouncementsCache } from "../context/useAnnouncements.js";
@@ -60,9 +61,10 @@ const TABS = TAB_GROUPS.flatMap((g) => g.tabs);
 // Exam suggestions everywhere now come straight from the shared taxonomy so
 // this list can never drift out of sync with what the public pages expect.
 function ExamDatalist() {
+  const { names } = useExams();
   return (
     <datalist id="exam-suggestions">
-      {EXAMS.map((e) => <option key={e} value={e} />)}
+      {names.map((e) => <option key={e} value={e} />)}
     </datalist>
   );
 }

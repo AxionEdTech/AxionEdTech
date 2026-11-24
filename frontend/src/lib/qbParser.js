@@ -11,6 +11,7 @@
 //   Explanation: Ground state of the harmonic oscillator ...
 //   Difficulty: easy            (easy | medium | hard — default medium)
 //   Source: CSIR NET Dec 2022   (optional)
+//   Topic: Vector Analysis      (optional; overrides the Topic chosen above the box)
 //   ---
 //
 // Kinds of question are worked out from the answer:
@@ -31,6 +32,7 @@ const EXPLANATION_RE = /^(?:explanation|solution|sol)\s*[:.\-]\s*(.*)$/i;
 const DIFFICULTY_RE = /^difficulty\s*[:.\-]\s*(\w+)/i;
 const TYPE_RE = /^type\s*[:.\-]\s*(\w+)/i;
 const SOURCE_RE = /^source\s*[:.\-]\s*(.+)$/i;
+const TOPIC_RE = /^topic\s*[:.\-]\s*(.+)$/i;
 const TOLERANCE_RE = /^tolerance\s*[:.\-]\s*([\d.eE+-]+)/i;
 const LEADING_RE = /^(?:q\s*\d*\s*[:.)]\s*|\d+\s*[).]\s*)/i;
 
@@ -63,6 +65,7 @@ export function parseQuestionBank(raw) {
     let difficulty = "medium";
     let explicitType = null;
     let source = null;
+    let topic = null;
     let tolerance = 0;
     let mode = "stem"; // stem | options | explanation
 
@@ -75,6 +78,7 @@ export function parseQuestionBank(raw) {
       if ((m = t.match(DIFFICULTY_RE))) { difficulty = m[1].toLowerCase(); mode = "after"; continue; }
       if ((m = t.match(TYPE_RE))) { explicitType = m[1].toLowerCase(); mode = "after"; continue; }
       if ((m = t.match(SOURCE_RE))) { source = m[1].trim(); mode = "after"; continue; }
+      if ((m = t.match(TOPIC_RE))) { topic = m[1].trim().replace(/\s+/g, " ").slice(0, 120); mode = "after"; continue; }
       if ((m = t.match(TOLERANCE_RE))) { tolerance = Number(m[1]); mode = "after"; continue; }
       if (mode === "explanation") { explanation.push(line); continue; }
       if ((m = t.match(OPTION_RE)) && mode !== "after" && stem.length > 0) {
@@ -134,6 +138,7 @@ export function parseQuestionBank(raw) {
       content: stemText,
       options: qtype === "nat" ? [] : options.map((o) => o.trim()),
       source: source || null,
+      topic: topic || null,
       answer_key: answerKey,
       nat_tolerance: qtype === "nat" && Number.isFinite(tolerance) ? Math.abs(tolerance) : 0,
       explanation: explanation.join("\n").trim(),
